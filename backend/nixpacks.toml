@@ -1,8 +1,10 @@
 [phases.setup]
-nixPkgs = ["php83", "composer", "nodejs_22"] # Menggunakan nodejs_22
+nixPkgs = ["php83", "nodejs_22"]
 
 [phases.build]
 cmds = [
+  "php -r \"copy('https://getcomposer.org/installer', 'composer-setup.php');\"",
+  "php composer-setup.php --install-dir=/usr/local/bin --filename=composer",
   "composer install --no-dev --optimize-autoloader",
   "npm install",
   "npm run build"
