@@ -94,6 +94,22 @@ class AdminController extends Controller
         ]);
     }
 
+    public function resetBarcode(Employee $employee): JsonResponse
+    {
+        if ($employee->status !== 'active') {
+            return response()->json([
+                'message' => 'Cannot reset barcode for inactive employees.',
+            ], 422);
+        }
+
+        $employee->regenerateUid();
+
+        return response()->json([
+            'message' => 'Barcode successfully reset.',
+            'data' => $this->formatEmployee($employee->fresh()),
+        ]);
+    }
+
     /**
      * Hourly / daily / monthly meal trend for the dashboard chart.
      */
