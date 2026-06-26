@@ -266,7 +266,8 @@ export default function ReportsView() {
         type: "success",
         message: "PDF report downloaded successfully.",
       });
-    } catch {
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
       setExportToast({
         type: "error",
         message: "Failed to generate PDF. Please try again.",
@@ -480,8 +481,12 @@ export default function ReportsView() {
         </div>
       )}
 
-      {/* Row 4: Summary & Breakdown Cards */}
-      <div ref={summaryRef} data-pdf-capture="summary" className="pdf-export-surface space-y-4">
+      {/* Row 4: Summary & Breakdown Cards — native wrapper for html2canvas ref */}
+      <div
+        ref={summaryRef}
+        data-pdf-capture="summary"
+        className="pdf-export-surface space-y-4"
+      >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {loading && !report
             ? Array.from({ length: 4 }).map((_, index) => <SummaryCardSkeleton key={index} />)
@@ -511,8 +516,12 @@ export default function ReportsView() {
         </div>
       </div>
 
-      {/* Row 5: Visual Analytics */}
-      <div ref={chartsRef} data-pdf-capture="charts" className="pdf-export-surface">
+      {/* Row 5: Visual Analytics — native wrapper for html2canvas ref (not on React component) */}
+      <div
+        ref={chartsRef}
+        data-pdf-capture="charts"
+        className="pdf-export-surface space-y-4"
+      >
         <ReportAnalyticsCharts
           trendData={chartData.trend}
           trendGranularity={trendGranularity}

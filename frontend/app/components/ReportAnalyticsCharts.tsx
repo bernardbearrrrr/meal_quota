@@ -99,6 +99,7 @@ export default function ReportAnalyticsCharts({
                     strokeWidth={2.5}
                     dot={{ r: 3, fill: "#6366f1" }}
                     activeDot={{ r: 5 }}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -119,7 +120,7 @@ export default function ReportAnalyticsCharts({
                     contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
                     formatter={(value) => [`${value} meal(s)`, "Total"]}
                   />
-                  <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -146,6 +147,7 @@ export default function ReportAnalyticsCharts({
                     innerRadius={55}
                     outerRadius={90}
                     paddingAngle={3}
+                    isAnimationActive={false}
                   >
                     {distributionData.map((entry) => (
                       <Cell key={entry.type} fill={entry.fill} />
@@ -194,7 +196,7 @@ export default function ReportAnalyticsCharts({
                     contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
                     formatter={(value) => [`${value} meal(s)`, "Total"]}
                   />
-                  <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={24} />
+                  <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={24} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             )}

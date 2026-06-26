@@ -31,30 +31,35 @@ function loadImageDimensions(dataUrl: string): Promise<{ width: number; height: 
 }
 
 async function captureElement(element: HTMLElement): Promise<CapturedImage> {
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    backgroundColor: "#ffffff",
-    useCORS: true,
-    logging: false,
-    onclone: (_document, clone) => {
-      if (!(clone instanceof HTMLElement)) {
-        return;
-      }
-
-      clone.classList.add("pdf-export-surface");
-      clone.querySelectorAll("[data-pdf-capture]").forEach((node) => {
-        if (node instanceof HTMLElement) {
-          node.classList.add("pdf-export-surface");
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false,
+      onclone: (_document, clone) => {
+        if (!(clone instanceof HTMLElement)) {
+          return;
         }
-      });
-    },
-  });
 
-  return {
-    dataUrl: canvas.toDataURL("image/png"),
-    pixelWidth: canvas.width,
-    pixelHeight: canvas.height,
-  };
+        clone.classList.add("pdf-export-surface");
+        clone.querySelectorAll("[data-pdf-capture]").forEach((node) => {
+          if (node instanceof HTMLElement) {
+            node.classList.add("pdf-export-surface");
+          }
+        });
+      },
+    });
+
+    return {
+      dataUrl: canvas.toDataURL("image/png"),
+      pixelWidth: canvas.width,
+      pixelHeight: canvas.height,
+    };
+  } catch (error) {
+    console.error("PDF Generation Error:", error);
+    throw error;
+  }
 }
 
 function fitImageDimensions(
@@ -207,67 +212,72 @@ export async function generateReportPdf({
   chartsElement,
   fileName,
 }: GenerateReportPdfParams): Promise<void> {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const generatedAt = new Date().toLocaleString();
+  try {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const generatedAt = new Date().toLocaleString();
 
-  let cursorY = drawPdfHeader(doc, filters, generatedAt);
+    let cursorY = drawPdfHeader(doc, filters, generatedAt);
 
-  cursorY = await addCapturedSection(doc, "Executive Summary", summaryElement, cursorY);
-  cursorY = await addCapturedSection(doc, "Visual Analytics", chartsElement, cursorY);
+    cursorY = await addCapturedSection(doc, "Executive Summary", summaryElement, cursorY);
+    cursorY = await addCapturedSection(doc, "Visual Analytics", chartsElement, cursorY);
 
-  cursorY = drawSectionTitle(doc, "Meal Log Details", cursorY);
+    cursorY = drawSectionTitle(doc, "Meal Log Details", cursorY);
 
-  autoTable(doc, {
-    startY: cursorY,
-    head: [["#", "Employee Name", "Department", "Date", "Time", "Meal Type"]],
-    body: report.data.map((row, index) => [
-      String(index + 1),
-      row.name,
-      row.department,
-      row.meal_date,
-      row.served_at,
-      MEAL_TYPE_LABELS[row.meal_type],
-    ]),
-    theme: "striped",
-    styles: {
-      fontSize: 8,
-      cellPadding: 2.5,
-      lineColor: [226, 232, 240],
-      lineWidth: 0.1,
-      textColor: [51, 65, 85],
-    },
-    headStyles: {
-      fillColor: HEADER_COLOR,
-      textColor: 255,
-      fontStyle: "bold",
-      halign: "left",
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-    columnStyles: {
-      0: { cellWidth: 10, halign: "center" },
-      1: { cellWidth: 38 },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 24 },
-      4: { cellWidth: 20 },
-      5: { cellWidth: 26 },
-    },
-    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-    didDrawPage: (data) => {
-      const { pageWidth, pageHeight } = getPageMetrics(doc);
-      const pageCount = doc.getNumberOfPages();
+    autoTable(doc, {
+      startY: cursorY,
+      head: [["#", "Employee Name", "Department", "Date", "Time", "Meal Type"]],
+      body: report.data.map((row, index) => [
+        String(index + 1),
+        row.name,
+        row.department,
+        row.meal_date,
+        row.served_at,
+        MEAL_TYPE_LABELS[row.meal_type],
+      ]),
+      theme: "striped",
+      styles: {
+        fontSize: 8,
+        cellPadding: 2.5,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1,
+        textColor: [51, 65, 85],
+      },
+      headStyles: {
+        fillColor: HEADER_COLOR,
+        textColor: 255,
+        fontStyle: "bold",
+        halign: "left",
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: "center" },
+        1: { cellWidth: 38 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 26 },
+      },
+      margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+      didDrawPage: (data) => {
+        const { pageWidth, pageHeight } = getPageMetrics(doc);
+        const pageCount = doc.getNumberOfPages();
 
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text(
-        `MealQuota Analytics Report — Page ${data.pageNumber} of ${pageCount}`,
-        pageWidth / 2,
-        pageHeight - 6,
-        { align: "center" },
-      );
-    },
-  });
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `MealQuota Analytics Report — Page ${data.pageNumber} of ${pageCount}`,
+          pageWidth / 2,
+          pageHeight - 6,
+          { align: "center" },
+        );
+      },
+    });
 
-  doc.save(fileName);
+    doc.save(fileName);
+  } catch (error) {
+    console.error("PDF Generation Error:", error);
+    throw error;
+  }
 }
