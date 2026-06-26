@@ -10,6 +10,7 @@ import {
   authFetch,
   buildQuery,
   EmployeesListResponse,
+  isEmployeeActive,
   parseJsonResponse,
 } from "../lib/api";
 
@@ -45,7 +46,7 @@ export default function DashboardOverview() {
 
         if (data) {
           setTotal(data.meta.total);
-          setActiveCount(data.data.filter((employee) => employee.is_active !== false).length);
+          setActiveCount(data.data.filter((employee) => isEmployeeActive(employee)).length);
         }
       } catch {
         setStatsError("Unable to connect to the server.");

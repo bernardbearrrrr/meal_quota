@@ -8,8 +8,15 @@ import {
   authFetch,
   EmployeeRecord,
   EmployeesListResponse,
+  getEmployeeStatus,
+  isEmployeeActive,
   parseJsonResponse,
 } from "../lib/api";
+
+type StatusUpdateResponse = {
+  message?: string;
+  data?: EmployeeRecord;
+};
 
 export default function EmployeeTable() {
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
@@ -20,6 +27,7 @@ export default function EmployeeTable() {
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [resigningId, setResigningId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const loadEmployees = useCallback(async () => {
@@ -98,6 +106,53 @@ export default function EmployeeTable() {
   function handleEmployeeCreated(employee: EmployeeRecord) {
     setEmployees((current) => [employee, ...current].sort((a, b) => a.name.localeCompare(b.name)));
     setToast(`${employee.name} has been added. Click Draft Email to send their barcode.`);
+  }
+
+  async function handleResign(employee: EmployeeRecord) {
+    if (!isEmployeeActive(employee)) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Mark ${employee.name} as resigned? Their barcode will be disabled immediately.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setResigningId(employee.id);
+
+    try {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${employee.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "inactive" }),
+      });
+
+      if (response.status >= 500) {
+        setToast("Server error. Unable to update employee status.");
+        return;
+      }
+
+      const data = await parseJsonResponse<StatusUpdateResponse>(response);
+
+      if (response.ok && data?.data) {
+        applyEmployeeUpdate(data.data);
+        setToast(data.message ?? `${employee.name} has been marked as resigned.`);
+        return;
+      }
+
+      setToast(data?.message ?? "Failed to update employee status.");
+    } catch {
+      setToast("Unable to connect to the server.");
+    } finally {
+      setResigningId(null);
+    }
+  }
+
+  function handleStatusUpdated(updated: EmployeeRecord, message: string) {
+    applyEmployeeUpdate(updated);
+    setToast(message);
   }
 
   const filterInputClassName =
@@ -217,6 +272,9 @@ export default function EmployeeTable() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Quota
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
+                  Status
+                </th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 lg:table-cell sm:px-6">
                   UID
                 </th>
@@ -228,57 +286,96 @@ export default function EmployeeTable() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading employees...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     {hasActiveFilter ? "No employees match your filters." : "No employees registered yet."}
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((employee) => (
+                filteredEmployees.map((employee) => {
+                  const employeeStatus = getEmployeeStatus(employee);
+                  const isInactive = employeeStatus === "inactive";
+
+                  return (
                   <tr
                     key={employee.id}
                     onClick={() => openEmployeeDetail(employee)}
-                    className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                    className={`cursor-pointer transition-colors ${
+                      isInactive
+                        ? "bg-slate-100/80 text-slate-400 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-500 dark:hover:bg-slate-800/70"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                    }`}
                   >
-                    <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-900 dark:text-white sm:px-6">
+                    <td className={`whitespace-nowrap px-4 py-4 text-sm font-medium sm:px-6 ${isInactive ? "text-slate-500 dark:text-slate-500" : "text-slate-900 dark:text-white"}`}>
                       {employee.name}
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-slate-300 sm:table-cell sm:px-6">
+                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm sm:table-cell sm:px-6">
                       {employee.position || "—"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-slate-300 sm:px-6">
+                    <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
                       {employee.department}
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-slate-300 md:table-cell sm:px-6">
+                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm md:table-cell sm:px-6">
                       {employee.email}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
-                      <span className="inline-flex min-w-8 justify-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                      <span className={`inline-flex min-w-8 justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        isInactive
+                          ? "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+                          : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"
+                      }`}>
                         {employee.quota_today ?? 1}
                       </span>
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 font-mono text-xs text-indigo-600 dark:text-indigo-400 lg:table-cell sm:px-6">
+                    <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
+                      {isInactive ? (
+                        <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                          Resigned
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="hidden whitespace-nowrap px-4 py-4 font-mono text-xs lg:table-cell sm:px-6">
                       {employee.uid}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right sm:px-6">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openEmployeeDetail(employee);
-                        }}
-                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
-                      >
-                        View
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {isEmployeeActive(employee) && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleResign(employee);
+                            }}
+                            disabled={resigningId === employee.id}
+                            className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                          >
+                            {resigningId === employee.id ? "..." : "Resign"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEmployeeDetail(employee);
+                          }}
+                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                        >
+                          View
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -297,6 +394,7 @@ export default function EmployeeTable() {
           isOpen={Boolean(selectedEmployee)}
           onClose={closeEmployeeDetail}
           onQuotaUpdated={handleQuotaUpdated}
+          onStatusUpdated={handleStatusUpdated}
         />
       )}
     </div>

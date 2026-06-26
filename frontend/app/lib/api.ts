@@ -127,6 +127,8 @@ export async function loginRequest(credentials: LoginCredentials): Promise<Respo
   });
 }
 
+export type EmployeeStatus = "active" | "inactive";
+
 export type EmployeeRecord = {
   id: number;
   name: string;
@@ -134,12 +136,25 @@ export type EmployeeRecord = {
   position: string;
   email: string;
   uid: string;
+  status?: EmployeeStatus;
   is_active?: boolean;
   uid_version?: number;
   quota_today?: number;
   created_at?: string;
   updated_at?: string;
 };
+
+export function getEmployeeStatus(employee: EmployeeRecord): EmployeeStatus {
+  if (employee.status === "active" || employee.status === "inactive") {
+    return employee.status;
+  }
+
+  return employee.is_active === false ? "inactive" : "active";
+}
+
+export function isEmployeeActive(employee: EmployeeRecord): boolean {
+  return getEmployeeStatus(employee) === "active";
+}
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "other";
 

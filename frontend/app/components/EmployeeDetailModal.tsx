@@ -6,6 +6,8 @@ import {
   API_BASE_URL,
   authFetch,
   EmployeeRecord,
+  getEmployeeStatus,
+  isEmployeeActive,
   parseJsonResponse,
 } from "../lib/api";
 import { openOutlookDraftEmail } from "../lib/barcodeEmail";
@@ -15,6 +17,7 @@ type EmployeeDetailModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
+  onStatusUpdated?: (employee: EmployeeRecord, message: string) => void;
 };
 
 type QuotaUpdateResponse = {
@@ -23,16 +26,25 @@ type QuotaUpdateResponse = {
   errors?: Record<string, string[]>;
 };
 
+type StatusUpdateResponse = {
+  message?: string;
+  data?: EmployeeRecord;
+};
+
 export default function EmployeeDetailModal({
   employee,
   isOpen,
   onClose,
   onQuotaUpdated,
+  onStatusUpdated,
 }: EmployeeDetailModalProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [quotaInput, setQuotaInput] = useState<string>(String(employee.quota_today ?? 1));
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const employeeStatus = getEmployeeStatus(employee);
+  const isInactive = employeeStatus === "inactive";
 
   useEffect(() => {
     setQuotaInput(String(employee.quota_today ?? 1));
@@ -94,6 +106,44 @@ export default function EmployeeDetailModal({
       setQuotaError("Unable to connect to the server.");
     } finally {
       setQuotaSaving(false);
+    }
+  }
+
+  async function handleResign() {
+    if (!isEmployeeActive(employee)) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Mark ${employee.name} as resigned? Their barcode will be disabled immediately.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatusSaving(true);
+
+    try {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${employee.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "inactive" }),
+      });
+
+      if (response.status >= 500) {
+        return;
+      }
+
+      const data = await parseJsonResponse<StatusUpdateResponse>(response);
+
+      if (response.ok && data?.data) {
+        onStatusUpdated?.(data.data, data.message ?? `${employee.name} has been marked as resigned.`);
+        return;
+      }
+    } catch {
+      // Parent toast handles connection errors via table if needed
+    } finally {
+      setStatusSaving(false);
     }
   }
 
@@ -172,15 +222,15 @@ export default function EmployeeDetailModal({
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</dt>
               <dd className="mt-1">
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    employee.is_active !== false
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                  }`}
-                >
-                  {employee.is_active !== false ? "Active" : "Inactive"}
-                </span>
+                {isInactive ? (
+                  <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                    Resigned
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    Active
+                  </span>
+                )}
               </dd>
             </div>
             <div>
@@ -229,13 +279,21 @@ export default function EmployeeDetailModal({
           )}
         </section>
 
-        <section className="mt-6 flex flex-col items-center gap-y-4 rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/40">
+        <section className={`mt-6 flex flex-col items-center gap-y-4 rounded-lg border p-5 shadow-sm ${
+          isInactive
+            ? "border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-800/60"
+            : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40"
+        }`}>
           <div className="text-center">
             <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Employee QR Access</h4>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Scan QR to verify employee credentials</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {isInactive
+                ? "Barcode disabled — employee has resigned."
+                : "Scan QR to verify employee credentials"}
+            </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700">
+          <div className={`rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 ${isInactive ? "opacity-40" : ""}`}>
             <QRCodeCanvas
               ref={qrCanvasRef}
               value={employee.uid}
@@ -248,7 +306,8 @@ export default function EmployeeDetailModal({
           <button
             type="button"
             onClick={handleDownloadQr}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            disabled={isInactive}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
@@ -258,6 +317,16 @@ export default function EmployeeDetailModal({
         </section>
 
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
+          {isEmployeeActive(employee) && (
+            <button
+              type="button"
+              onClick={handleResign}
+              disabled={statusSaving}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+            >
+              {statusSaving ? "Updating..." : "Mark as Resigned"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -265,23 +334,25 @@ export default function EmployeeDetailModal({
           >
             Close
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              openOutlookDraftEmail({
-                email: employee.email,
-                name: employee.name,
-                position: employee.position ?? "",
-                uid: employee.uid,
-              })
-            }
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
-            Draft Email
-          </button>
+          {isEmployeeActive(employee) && (
+            <button
+              type="button"
+              onClick={() =>
+                openOutlookDraftEmail({
+                  email: employee.email,
+                  name: employee.name,
+                  position: employee.position ?? "",
+                  uid: employee.uid,
+                })
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+              Draft Email
+            </button>
+          )}
         </div>
       </div>
     </div>
