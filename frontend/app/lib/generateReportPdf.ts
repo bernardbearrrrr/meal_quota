@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { MEAL_TYPE_LABELS, ReportResponse } from "./api";
@@ -32,29 +32,17 @@ function loadImageDimensions(dataUrl: string): Promise<{ width: number; height: 
 
 async function captureElement(element: HTMLElement): Promise<CapturedImage> {
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
+    const dataUrl = await toPng(element, {
       backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-      onclone: (_document, clone) => {
-        if (!(clone instanceof HTMLElement)) {
-          return;
-        }
-
-        clone.classList.add("pdf-export-surface");
-        clone.querySelectorAll("[data-pdf-capture]").forEach((node) => {
-          if (node instanceof HTMLElement) {
-            node.classList.add("pdf-export-surface");
-          }
-        });
-      },
+      pixelRatio: 2,
     });
 
+    const dimensions = await loadImageDimensions(dataUrl);
+
     return {
-      dataUrl: canvas.toDataURL("image/png"),
-      pixelWidth: canvas.width,
-      pixelHeight: canvas.height,
+      dataUrl,
+      pixelWidth: dimensions.width,
+      pixelHeight: dimensions.height,
     };
   } catch (error) {
     console.error("PDF Generation Error:", error);

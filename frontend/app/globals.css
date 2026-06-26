@@ -6,7 +6,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Force light, print-friendly styling when html2canvas clones export targets */
+/* Force light, print-friendly styling when html-to-image captures export targets */
 .pdf-export-surface {
   background-color: #ffffff !important;
   color: #0f172a !important;

@@ -481,7 +481,7 @@ export default function ReportsView() {
         </div>
       )}
 
-      {/* Row 4: Summary & Breakdown Cards — native wrapper for html2canvas ref */}
+      {/* Row 4: Summary & Breakdown Cards — native wrapper for PDF screenshot ref */}
       <div
         ref={summaryRef}
         data-pdf-capture="summary"
@@ -516,7 +516,7 @@ export default function ReportsView() {
         </div>
       </div>
 
-      {/* Row 5: Visual Analytics — native wrapper for html2canvas ref (not on React component) */}
+      {/* Row 5: Visual Analytics — native wrapper for PDF screenshot ref (not on React component) */}
       <div
         ref={chartsRef}
         data-pdf-capture="charts"
