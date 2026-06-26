@@ -21,9 +21,10 @@ function MoonIcon({ className }: { className?: string }) {
 
 type ThemeToggleProps = {
   className?: string;
+  showLabel?: boolean;
 };
 
-export default function ThemeToggle({ className = "" }: ThemeToggleProps) {
+export default function ThemeToggle({ className = "", showLabel = true }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -45,8 +46,8 @@ export default function ThemeToggle({ className = "" }: ThemeToggleProps) {
         aria-label="Loading theme toggle"
         className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 opacity-60 ${className}`}
       >
-        <MoonIcon className="h-5 w-5 shrink-0" />
-        Dark Mode
+        <MoonIcon className="h-6 w-6 shrink-0" />
+        {showLabel && <span className="truncate">Dark Mode</span>}
       </button>
     );
   }
@@ -59,11 +60,11 @@ export default function ThemeToggle({ className = "" }: ThemeToggleProps) {
       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${className}`}
     >
       {isDark ? (
-        <SunIcon className="h-5 w-5 shrink-0" />
+        <SunIcon className="h-6 w-6 shrink-0" />
       ) : (
-        <MoonIcon className="h-5 w-5 shrink-0" />
+        <MoonIcon className="h-6 w-6 shrink-0" />
       )}
-      {isDark ? "Light Mode" : "Dark Mode"}
+      {showLabel && <span className="truncate">{isDark ? "Light Mode" : "Dark Mode"}</span>}
     </button>
   );
 }
