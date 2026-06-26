@@ -41,6 +41,29 @@ export function clearToken(): void {
   localStorage.removeItem(ROLE_KEY);
 }
 
+export async function logoutRequest(): Promise<void> {
+  const token = getToken();
+
+  if (!token || !API_BASE_URL) {
+    return;
+  }
+
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+  } catch {
+    // Best-effort server-side token revoke; local session is cleared regardless.
+  }
+}
+
+export async function logout(): Promise<void> {
+  await logoutRequest();
+  clearToken();
+  window.location.href = "/login";
+}
+
 export function redirectToLogin(): void {
   clearToken();
   window.location.href = "/login";
@@ -164,6 +187,44 @@ export type EmployeesListResponse = {
     total: number;
   };
 };
+
+export type BulkImportRowError = {
+  row: number;
+  message: string;
+};
+
+export type BulkImportSuccessResponse = {
+  message: string;
+  data: {
+    imported_count: number;
+  };
+};
+
+export type BulkImportErrorResponse = {
+  message: string;
+  errors?: BulkImportRowError[];
+};
+
+export async function bulkImportEmployees(file: File): Promise<Response> {
+  assertApiBaseUrl();
+
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/admin/employees/bulk`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  handleUnauthorized(response);
+
+  return response;
+}
 
 export type MealLogRecord = {
   id: number;

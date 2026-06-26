@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddEmployeeModal from "./AddEmployeeModal";
+import BulkImportModal from "./BulkImportModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
 import {
   API_BASE_URL,
@@ -31,6 +32,7 @@ export default function EmployeeTable() {
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
@@ -117,6 +119,11 @@ export default function EmployeeTable() {
     setToast(`${normalized.name} has been added. Click Draft Email to send their barcode.`);
   }
 
+  function handleBulkImportSuccess(message: string) {
+    setToast(message);
+    void refreshData();
+  }
+
   function handleStatusUpdated(updated: EmployeeRecord, message: string) {
     applyEmployeeUpdate(updated);
     setToast(message);
@@ -163,6 +170,16 @@ export default function EmployeeTable() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             Add Employee
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            Bulk Import CSV
           </button>
           <button
             type="button"
@@ -344,6 +361,12 @@ export default function EmployeeTable() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onEmployeeCreated={handleEmployeeCreated}
+      />
+
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={handleBulkImportSuccess}
       />
 
       {selectedEmployee && (

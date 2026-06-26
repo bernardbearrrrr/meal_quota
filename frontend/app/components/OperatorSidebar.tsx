@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { clearToken } from "../lib/api";
+import { logout } from "../lib/api";
 import ThemeToggle from "./ThemeToggle";
 
 const navItems = [
@@ -83,8 +83,7 @@ export default function OperatorSidebar({
   const showLabels = isMobile || !isCollapsed;
 
   function handleLogout() {
-    clearToken();
-    window.location.href = "/login";
+    void logout();
   }
 
   const asideClassName = isMobile
