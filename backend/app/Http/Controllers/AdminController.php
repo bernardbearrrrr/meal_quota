@@ -4,12 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\MealLog;
-use App\Services\ResendBarcodeMailer;
-use App\Support\QrCode;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -54,33 +51,12 @@ class AdminController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('employees', 'email')->whereNull('deleted_at')],
         ]);
 
-        $employee = DB::transaction(function () use ($validated) {
-            $employee = Employee::create($validated);
-
-            $this->sendBarcodeEmail($employee);
-
-            return $employee;
-        });
+        $employee = Employee::create($validated);
 
         return response()->json([
-            'message' => 'Employee created and barcode email sent successfully.',
+            'message' => 'Employee created successfully.',
             'data' => $this->formatEmployee($employee),
         ], 201);
-    }
-
-    public function resendBarcode(Employee $employee): JsonResponse
-    {
-        $employee = DB::transaction(function () use ($employee) {
-            $employee->regenerateUid();
-            $this->sendBarcodeEmail($employee);
-
-            return $employee;
-        });
-
-        return response()->json([
-            'message' => 'Barcode regenerated and email sent successfully.',
-            'data' => $this->formatEmployee($employee),
-        ]);
     }
 
     public function updateQuota(Request $request, Employee $employee): JsonResponse
@@ -245,17 +221,6 @@ class AdminController extends Controller
                 'unique_employees' => $logs->pluck('employee_id')->unique()->count(),
             ],
         ]);
-    }
-
-    private function sendBarcodeEmail(Employee $employee): void
-    {
-        $qrCodeImage = QrCode::format('png')
-            ->driver('gd')
-            ->size(300)
-            ->margin(2)
-            ->generate($employee->uid);
-
-        app(ResendBarcodeMailer::class)->send($employee, $qrCodeImage);
     }
 
     /**
