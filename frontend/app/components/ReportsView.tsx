@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import MealTypeBadge from "./MealTypeBadge";
 import ReportAnalyticsCharts from "./ReportAnalyticsCharts";
 import {
@@ -15,6 +13,7 @@ import {
   parseJsonResponse,
   ReportResponse,
 } from "../lib/api";
+import { generateReportPdf } from "../lib/generateReportPdf";
 import {
   buildDistributionData,
   buildTopDepartments,
@@ -75,9 +74,11 @@ export default function ReportsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportToast, setExportToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchControllerRef = useRef<AbortController | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const chartsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedName(name.trim()), 500);
@@ -185,6 +186,15 @@ export default function ReportsView() {
     loadReport();
   }, [loadReport]);
 
+  useEffect(() => {
+    if (!exportToast) {
+      return;
+    }
+
+    const timer = setTimeout(() => setExportToast(null), 4500);
+    return () => clearTimeout(timer);
+  }, [exportToast]);
+
   function handleQuickRangeSelect(range: AnalyticsRange) {
     setDateMode("quick");
     setQuickRange(range);
@@ -210,74 +220,57 @@ export default function ReportsView() {
     }
   }
 
-  function handleExportPdf() {
+  async function handleExportPdf() {
     if (!report || report.data.length === 0 || !effectiveDates) {
-      setExportError("No data available to export for the current filters.");
+      setExportToast({
+        type: "error",
+        message: "No data available to export for the current filters.",
+      });
+      return;
+    }
+
+    if (!summaryRef.current || !chartsRef.current) {
+      setExportToast({
+        type: "error",
+        message: "Export sections are not ready. Please try again.",
+      });
       return;
     }
 
     setExporting(true);
-    setExportError(null);
+    setExportToast(null);
 
     try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const generatedAt = new Date().toLocaleString();
-      const periodLabel = formatDateRangeLabel(effectiveDates.start, effectiveDates.end);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-      doc.setFontSize(18);
-      doc.setTextColor(40, 40, 40);
-      doc.text("MealQuota", 14, 18);
+      const dateModeLabel =
+        dateMode === "quick"
+          ? (QUICK_RANGE_OPTIONS.find((option) => option.value === quickRange)?.label ?? "Today")
+          : "Custom Range";
 
-      doc.setFontSize(12);
-      doc.setTextColor(90, 90, 90);
-      doc.text("Meal Analytics Report", 14, 26);
-
-      doc.setFontSize(9);
-      doc.setTextColor(120, 120, 120);
-      doc.text(`Generated: ${generatedAt}`, pageWidth - 14, 18, { align: "right" });
-
-      const filterParts = [
-        `Period: ${periodLabel}`,
-        debouncedName ? `Name: ${debouncedName}` : null,
-        debouncedDepartment ? `Department: ${debouncedDepartment}` : null,
-        `Meal Type: ${mealType ? MEAL_TYPE_LABELS[mealType] : "All"}`,
-      ].filter(Boolean);
-
-      doc.text(filterParts.join("  |  "), 14, 34);
-
-      const summary = report.summary;
-      doc.text(
-        [
-          `Total Meals: ${summary.total}`,
-          `Unique Employees: ${summary.unique_employees}`,
-          `Top Meal: ${summary.top_meal_type ? MEAL_TYPE_LABELS[summary.top_meal_type] : "—"}`,
-          `Top Dept: ${summary.top_department ?? "—"}`,
-        ].join("   "),
-        14,
-        40,
-      );
-
-      autoTable(doc, {
-        startY: 46,
-        head: [["#", "Name", "Department", "Date", "Time", "Meal Type"]],
-        body: report.data.map((row, index) => [
-          String(index + 1),
-          row.name,
-          row.department,
-          row.meal_date,
-          row.served_at,
-          MEAL_TYPE_LABELS[row.meal_type],
-        ]),
-        styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fillColor: [99, 102, 241], textColor: 255 },
-        alternateRowStyles: { fillColor: [245, 246, 250] },
-        margin: { left: 14, right: 14 },
+      await generateReportPdf({
+        report,
+        filters: {
+          periodLabel: formatDateRangeLabel(effectiveDates.start, effectiveDates.end),
+          dateModeLabel,
+          name: debouncedName,
+          department: debouncedDepartment,
+          mealTypeLabel: mealType ? MEAL_TYPE_LABELS[mealType] : "All meal types",
+        },
+        summaryElement: summaryRef.current,
+        chartsElement: chartsRef.current,
+        fileName: `meal-analytics-${effectiveDates.start}_to_${effectiveDates.end}.pdf`,
       });
 
-      doc.save(`meal-analytics-${effectiveDates.start}_to_${effectiveDates.end}.pdf`);
+      setExportToast({
+        type: "success",
+        message: "PDF report downloaded successfully.",
+      });
     } catch {
-      setExportError("Failed to generate PDF. Please try again.");
+      setExportToast({
+        type: "error",
+        message: "Failed to generate PDF. Please try again.",
+      });
     } finally {
       setExporting(false);
     }
@@ -317,6 +310,34 @@ export default function ReportsView() {
 
   return (
     <div className="space-y-6">
+      {exportToast && (
+        <div
+          role="alert"
+          className={`fixed right-4 top-4 z-60 flex max-w-sm items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${
+            exportToast.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+              : "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          }`}
+        >
+          <svg
+            className={`mt-0.5 h-5 w-5 shrink-0 ${
+              exportToast.type === "success" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+          >
+            {exportToast.type === "success" ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            )}
+          </svg>
+          <p>{exportToast.message}</p>
+        </div>
+      )}
+
       {/* Row 1: Header & PDF */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -333,10 +354,22 @@ export default function ReportsView() {
           disabled={exporting || loading || !report || report.data.length === 0}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
-          </svg>
-          {exporting ? "Preparing..." : "Download PDF"}
+          {exporting ? (
+            <>
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Generating PDF...
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
+              </svg>
+              Download PDF
+            </>
+          )}
         </button>
       </div>
 
@@ -447,14 +480,8 @@ export default function ReportsView() {
         </div>
       )}
 
-      {exportError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/50 dark:text-amber-300">
-          {exportError}
-        </div>
-      )}
-
       {/* Row 4: Summary & Breakdown Cards */}
-      <div className="space-y-4">
+      <div ref={summaryRef} data-pdf-capture="summary" className="pdf-export-surface space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {loading && !report
             ? Array.from({ length: 4 }).map((_, index) => <SummaryCardSkeleton key={index} />)
@@ -485,13 +512,15 @@ export default function ReportsView() {
       </div>
 
       {/* Row 5: Visual Analytics */}
-      <ReportAnalyticsCharts
-        trendData={chartData.trend}
-        trendGranularity={trendGranularity}
-        distributionData={chartData.distribution}
-        departmentData={chartData.departments}
-        loading={loading}
-      />
+      <div ref={chartsRef} data-pdf-capture="charts" className="pdf-export-surface">
+        <ReportAnalyticsCharts
+          trendData={chartData.trend}
+          trendGranularity={trendGranularity}
+          distributionData={chartData.distribution}
+          departmentData={chartData.departments}
+          loading={loading}
+        />
+      </div>
 
       {/* Row 6: Data Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
