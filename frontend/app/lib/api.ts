@@ -89,6 +89,44 @@ export async function authFetch(url: string, init: RequestInit = {}): Promise<Re
   return response;
 }
 
+export type LoginCredentials = {
+  email: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  token: string;
+  role: UserRole;
+  user: {
+    name: string;
+    email: string;
+  };
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+export function assertApiBaseUrl(): void {
+  if (!API_BASE_URL) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured.");
+  }
+}
+
+export async function loginRequest(credentials: LoginCredentials): Promise<Response> {
+  assertApiBaseUrl();
+
+  return fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      email: credentials.email.trim(),
+      password: credentials.password,
+    }),
+  });
+}
+
 export type EmployeeRecord = {
   id: number;
   name: string;

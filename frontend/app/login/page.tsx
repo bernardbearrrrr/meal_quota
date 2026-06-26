@@ -2,16 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL, parseJsonResponse, setRole, setToken } from "../lib/api";
-
-type LoginResponse = {
-  token: string;
-  role: string;
-  user: {
-    name: string;
-    email: string;
-  };
-};
+import { loginRequest, parseJsonResponse, setRole, setToken, type LoginResponse } from "../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,16 +17,9 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await loginRequest({ email, password });
 
-      const data = await parseJsonResponse<LoginResponse & { message?: string; errors?: Record<string, string[]> }>(response);
+      const data = await parseJsonResponse<LoginResponse>(response);
 
       if (response.ok && data?.token && (data.role === "admin" || data.role === "operator")) {
         setToken(data.token);
@@ -54,8 +38,12 @@ export default function LoginPage() {
         : null;
 
       setError(validationErrors ?? data?.message ?? "Invalid email or password.");
-    } catch {
-      setError("Unable to connect to the server. Please ensure the API is running.");
+    } catch (error) {
+      setError(
+        error instanceof Error && error.message.includes("NEXT_PUBLIC_API_URL")
+          ? "API URL is not configured. Set NEXT_PUBLIC_API_URL in your environment and redeploy."
+          : "Unable to connect to the server. Please ensure the API is running.",
+      );
     } finally {
       setLoading(false);
     }
@@ -90,7 +78,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form method="post" action="#" onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email
