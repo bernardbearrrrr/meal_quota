@@ -4,11 +4,14 @@ import { FormEvent, useState } from "react";
 import {
   API_BASE_URL,
   authFetch,
+  EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
+import { openBarcodeDraftEmail } from "../lib/barcodeEmail";
 
 type CreateEmployeeResponse = {
   message?: string;
+  data?: EmployeeRecord;
   errors?: Record<string, string[]>;
 };
 
@@ -39,8 +42,9 @@ export default function AddEmployeeForm() {
 
       const data = await parseJsonResponse<CreateEmployeeResponse>(response);
 
-      if (response.status === 201) {
-        setSuccess(data?.message ?? "Employee created and barcode email sent successfully.");
+      if (response.status === 201 && data?.data) {
+        setSuccess(data.message ?? "Employee created successfully.");
+        openBarcodeDraftEmail(data.data);
         setName("");
         setDepartment("");
         setEmail("");
@@ -152,10 +156,10 @@ export default function AddEmployeeForm() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Sending...
+                Saving...
               </>
             ) : (
-              "Save & Send Barcode"
+              "Save & Draft Email"
             )}
           </button>
         </div>

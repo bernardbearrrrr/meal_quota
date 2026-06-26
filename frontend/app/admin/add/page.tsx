@@ -6,7 +6,7 @@ export default function AddEmployeePage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Add New Employee</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Register an employee and automatically email their personal meal barcode.
+          Register an employee, then open a draft email in your mail client with their barcode link.
         </p>
       </div>
 

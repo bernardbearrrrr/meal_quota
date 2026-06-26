@@ -8,14 +8,12 @@ import {
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
+import { openBarcodeDraftEmail } from "../lib/barcodeEmail";
 
 type EmployeeDetailModalProps = {
   employee: EmployeeRecord;
   isOpen: boolean;
   onClose: () => void;
-  onResend: () => void;
-  resendLoading: boolean;
-  resendError: string | null;
   onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
 };
 
@@ -29,9 +27,6 @@ export default function EmployeeDetailModal({
   employee,
   isOpen,
   onClose,
-  onResend,
-  resendLoading,
-  resendError,
   onQuotaUpdated,
 }: EmployeeDetailModalProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -252,12 +247,6 @@ export default function EmployeeDetailModal({
           </button>
         </section>
 
-        {resendError && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
-            {resendError}
-          </div>
-        )}
-
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
           <button
             type="button"
@@ -268,26 +257,13 @@ export default function EmployeeDetailModal({
           </button>
           <button
             type="button"
-            onClick={onResend}
-            disabled={resendLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400"
+            onClick={() => openBarcodeDraftEmail(employee)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
           >
-            {resendLoading ? (
-              <>
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Sending...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                Resend Barcode
-              </>
-            )}
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            Draft Email
           </button>
         </div>
       </div>

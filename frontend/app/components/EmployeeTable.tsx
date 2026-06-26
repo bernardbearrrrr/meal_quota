@@ -8,7 +8,6 @@ import {
   EmployeeRecord,
   EmployeesListResponse,
   parseJsonResponse,
-  ResendBarcodeResponse,
 } from "../lib/api";
 
 export default function EmployeeTable() {
@@ -19,8 +18,6 @@ export default function EmployeeTable() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendError, setResendError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const loadEmployees = useCallback(async () => {
@@ -78,12 +75,10 @@ export default function EmployeeTable() {
 
   function openEmployeeDetail(employee: EmployeeRecord) {
     setSelectedEmployee(employee);
-    setResendError(null);
   }
 
   function closeEmployeeDetail() {
     setSelectedEmployee(null);
-    setResendError(null);
   }
 
   function applyEmployeeUpdate(updated: EmployeeRecord) {
@@ -91,41 +86,6 @@ export default function EmployeeTable() {
       current.map((employee) => (employee.id === updated.id ? updated : employee)),
     );
     setSelectedEmployee(updated);
-  }
-
-  async function handleResendBarcode() {
-    if (!selectedEmployee) {
-      return;
-    }
-
-    setResendLoading(true);
-    setResendError(null);
-
-    try {
-      const response = await authFetch(
-        `${API_BASE_URL}/admin/employees/${selectedEmployee.id}/resend-barcode`,
-        { method: "POST" },
-      );
-
-      if (response.status >= 500) {
-        setResendError("Server error. Unable to resend barcode.");
-        return;
-      }
-
-      const data = await parseJsonResponse<ResendBarcodeResponse>(response);
-
-      if (response.ok && data?.data) {
-        applyEmployeeUpdate(data.data);
-        setToast(data.message ?? "Barcode email sent successfully.");
-        return;
-      }
-
-      setResendError(data?.message ?? "Failed to resend barcode. Please try again.");
-    } catch {
-      setResendError("Unable to connect to the server.");
-    } finally {
-      setResendLoading(false);
-    }
   }
 
   function handleQuotaUpdated(updated: EmployeeRecord, message: string) {
@@ -154,7 +114,7 @@ export default function EmployeeTable() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Manage Employees</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Search, set daily quota, view details, and resend meal barcodes.
+            Search, set daily quota, view details, and draft barcode emails.
           </p>
         </div>
         <button
@@ -305,9 +265,6 @@ export default function EmployeeTable() {
           employee={selectedEmployee}
           isOpen={Boolean(selectedEmployee)}
           onClose={closeEmployeeDetail}
-          onResend={handleResendBarcode}
-          resendLoading={resendLoading}
-          resendError={resendError}
           onQuotaUpdated={handleQuotaUpdated}
         />
       )}

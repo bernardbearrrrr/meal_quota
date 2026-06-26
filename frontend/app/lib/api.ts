@@ -149,11 +149,6 @@ export type EmployeesListResponse = {
   };
 };
 
-export type ResendBarcodeResponse = {
-  message?: string;
-  data?: EmployeeRecord;
-};
-
 export type MealLogRecord = {
   id: number;
   employee: {
