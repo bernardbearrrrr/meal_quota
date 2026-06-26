@@ -27,7 +27,7 @@ class MealController extends Controller
         $showAll = $request->boolean('show_all');
 
         $query = MealLog::query()
-            ->with('employee:id,name,department')
+            ->with('employee:id,name,department,type,employee_id')
             ->orderByDesc('served_at');
 
         if (! empty($validated['search'])) {
@@ -155,6 +155,8 @@ class MealController extends Controller
             'employee' => [
                 'name' => $log->employee?->name,
                 'department' => $log->employee?->department,
+                'type' => $log->employee?->type ?? 'associate',
+                'employee_id' => $log->employee?->employee_id,
             ],
             'meal_date' => $log->meal_date->format('Y-m-d'),
             'served_at' => $log->served_at->format('l, d/m/Y H:i:s'),

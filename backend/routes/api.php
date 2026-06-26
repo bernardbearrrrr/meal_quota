@@ -18,6 +18,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/admin/employees', [AdminController::class, 'indexEmployees']);
     Route::post('/admin/employees', [AdminController::class, 'storeEmployee']);
     Route::post('/admin/employees/bulk', [AdminController::class, 'bulkStore']);
+    Route::patch('/admin/employees/{employee}', [AdminController::class, 'update']);
     Route::patch('/admin/employees/{employee}/quota', [AdminController::class, 'updateQuota']);
     Route::patch('/admin/employees/{employee}/status', [AdminController::class, 'updateStatus']);
     Route::patch('/admin/employees/{employee}/reset-barcode', [AdminController::class, 'resetBarcode']);

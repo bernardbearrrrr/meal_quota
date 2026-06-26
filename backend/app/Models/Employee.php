@@ -15,6 +15,8 @@ class Employee extends Model
         'name',
         'department',
         'position',
+        'type',
+        'employee_id',
         'email',
         'status',
         'is_active',
@@ -40,6 +42,10 @@ class Employee extends Model
 
             if (empty($employee->status)) {
                 $employee->status = 'active';
+            }
+
+            if (empty($employee->type)) {
+                $employee->type = 'associate';
             }
 
             $employee->is_active = ($employee->status ?? 'active') === 'active';

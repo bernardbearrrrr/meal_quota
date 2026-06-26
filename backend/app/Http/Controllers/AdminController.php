@@ -47,12 +47,13 @@ class AdminController extends Controller
 
     public function storeEmployee(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'department' => ['required', 'string', 'max:255'],
-            'position' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('employees', 'email')->whereNull('deleted_at')],
-        ]);
+        $validated = $request->validate(
+            $this->employeeValidationRules($request)
+        );
+
+        if (($validated['type'] ?? 'associate') === 'intern') {
+            $validated['employee_id'] = null;
+        }
 
         $employee = Employee::create($validated);
 
@@ -60,6 +61,56 @@ class AdminController extends Controller
             'message' => 'Employee created successfully.',
             'data' => $this->formatEmployee($employee),
         ], 201);
+    }
+
+    public function update(Request $request, Employee $employee): JsonResponse
+    {
+        $validated = $request->validate(
+            $this->employeeValidationRules($request, $employee)
+        );
+
+        if (($validated['type'] ?? 'associate') === 'intern') {
+            $validated['employee_id'] = null;
+        }
+
+        $employee->update($validated);
+
+        return response()->json([
+            'message' => "{$employee->name}'s details have been updated.",
+            'data' => $this->formatEmployee($employee->fresh()),
+        ]);
+    }
+
+    /**
+     * Shared validation rules for creating and editing an employee.
+     * Conditional rule: associates require a unique employee_id; interns must leave it empty.
+     *
+     * @return array<string, mixed>
+     */
+    private function employeeValidationRules(Request $request, ?Employee $employee = null): array
+    {
+        $emailUnique = Rule::unique('employees', 'email')->whereNull('deleted_at');
+        $employeeIdUnique = Rule::unique('employees', 'employee_id')->whereNull('deleted_at');
+
+        if ($employee) {
+            $emailUnique->ignore($employee->id);
+            $employeeIdUnique->ignore($employee->id);
+        }
+
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'department' => ['required', 'string', 'max:255'],
+            'position' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', $emailUnique],
+            'type' => ['required', 'string', Rule::in(['associate', 'intern'])],
+            'employee_id' => [
+                Rule::requiredIf(fn () => $request->input('type') === 'associate'),
+                'nullable',
+                'string',
+                'max:255',
+                $employeeIdUnique,
+            ],
+        ];
     }
 
     public function bulkStore(Request $request): JsonResponse
@@ -86,7 +137,7 @@ class AdminController extends Controller
             ], 422);
         }
 
-        $expectedHeaders = ['name', 'department', 'position', 'email'];
+        $expectedHeaders = ['name', 'department', 'position', 'email', 'type', 'employee_id'];
         $normalizedHeaders = array_map(
             fn ($header) => strtolower(trim((string) $header)),
             $headers,
@@ -96,7 +147,7 @@ class AdminController extends Controller
             fclose($handle);
 
             return response()->json([
-                'message' => 'Invalid CSV headers. Expected: name, department, position, email.',
+                'message' => 'Invalid CSV headers. Expected: name, department, position, email, type, employee_id.',
             ], 422);
         }
 
@@ -119,6 +170,12 @@ class AdminController extends Controller
                 continue;
             }
 
+            $type = strtolower(trim((string) ($data[4] ?? '')));
+
+            if ($type === '') {
+                $type = 'associate';
+            }
+
             $parsedRows[] = [
                 'line' => $lineNumber,
                 'data' => [
@@ -126,6 +183,8 @@ class AdminController extends Controller
                     'department' => trim((string) $data[1]),
                     'position' => trim((string) $data[2]),
                     'email' => trim((string) $data[3]),
+                    'type' => $type,
+                    'employee_id' => trim((string) ($data[5] ?? '')),
                 ],
             ];
         }
@@ -141,6 +200,7 @@ class AdminController extends Controller
         $errors = [];
         $validRows = [];
         $seenEmails = [];
+        $seenEmployeeIds = [];
 
         foreach ($parsedRows as $parsedRow) {
             $line = $parsedRow['line'];
@@ -160,6 +220,8 @@ class AdminController extends Controller
                 'department' => ['required', 'string', 'max:255'],
                 'position' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'email', 'max:255'],
+                'type' => ['required', 'string', Rule::in(['associate', 'intern'])],
+                'employee_id' => ['nullable', 'string', 'max:255'],
             ]);
 
             if ($validator->fails()) {
@@ -191,6 +253,41 @@ class AdminController extends Controller
                 ];
 
                 continue;
+            }
+
+            if ($rowData['type'] === 'intern') {
+                $rowData['employee_id'] = null;
+            } else {
+                if ($rowData['employee_id'] === '') {
+                    $errors[] = [
+                        'row' => $line,
+                        'message' => 'Employee ID is required for associates.',
+                    ];
+
+                    continue;
+                }
+
+                $employeeIdKey = strtolower($rowData['employee_id']);
+
+                if (isset($seenEmployeeIds[$employeeIdKey])) {
+                    $errors[] = [
+                        'row' => $line,
+                        'message' => "Duplicate employee ID in CSV (also on row {$seenEmployeeIds[$employeeIdKey]}).",
+                    ];
+
+                    continue;
+                }
+
+                $seenEmployeeIds[$employeeIdKey] = $line;
+
+                if (Employee::query()->where('employee_id', $rowData['employee_id'])->whereNull('deleted_at')->exists()) {
+                    $errors[] = [
+                        'row' => $line,
+                        'message' => 'Employee ID has already been registered.',
+                    ];
+
+                    continue;
+                }
             }
 
             $validRows[] = $rowData;
@@ -453,6 +550,8 @@ class AdminController extends Controller
             'name' => $employee->name,
             'department' => $employee->department,
             'position' => $employee->position,
+            'type' => $employee->type ?? 'associate',
+            'employee_id' => $employee->employee_id,
             'email' => $employee->email,
             'status' => $employee->status ?? ($employee->is_active ? 'active' : 'inactive'),
             'is_active' => $employee->is_active,
