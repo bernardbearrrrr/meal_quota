@@ -53,7 +53,7 @@ export default function AddEmployeeForm() {
 
       setError(validationErrors ?? data?.message ?? "Failed to create employee. Please try again.");
     } catch {
-      setError("Unable to connect to the server. Please ensure the API is running at localhost:8000.");
+      setError("Unable to connect to the server. Please check the API URL configuration.");
     } finally {
       setLoading(false);
     }
