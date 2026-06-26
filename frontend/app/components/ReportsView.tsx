@@ -516,18 +516,25 @@ export default function ReportsView() {
         </div>
       </div>
 
-      {/* Row 5: Visual Analytics — native wrapper for PDF screenshot ref (not on React component) */}
+      {/* Row 5: Visual Analytics — single title inside capture wrapper */}
       <div
         ref={chartsRef}
         data-pdf-capture="charts"
-        className="pdf-export-surface space-y-4"
+        className="pdf-export-surface space-y-4 rounded-xl bg-white p-4"
       >
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Visual Analytics</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Meal trend, distribution, and top departments for the active filters.
+          </p>
+        </div>
         <ReportAnalyticsCharts
           trendData={chartData.trend}
           trendGranularity={trendGranularity}
           distributionData={chartData.distribution}
           departmentData={chartData.departments}
           loading={loading}
+          showSectionHeader={false}
         />
       </div>
 

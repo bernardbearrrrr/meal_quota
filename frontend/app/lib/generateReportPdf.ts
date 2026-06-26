@@ -4,6 +4,8 @@ import autoTable from "jspdf-autotable";
 import { MEAL_TYPE_LABELS, ReportResponse } from "./api";
 
 const PDF_MARGIN = 14;
+const SECTION_GAP = 8;
+const CAPTURE_PADDING_PX = 20;
 const HEADER_COLOR: [number, number, number] = [99, 102, 241];
 const BRAND_COLOR: [number, number, number] = [79, 70, 229];
 
@@ -35,6 +37,10 @@ async function captureElement(element: HTMLElement): Promise<CapturedImage> {
     const dataUrl = await toPng(element, {
       backgroundColor: "#ffffff",
       pixelRatio: 2,
+      style: {
+        padding: `${CAPTURE_PADDING_PX}px`,
+        backgroundColor: "#ffffff",
+      },
     });
 
     const dimensions = await loadImageDimensions(dataUrl);
@@ -50,24 +56,6 @@ async function captureElement(element: HTMLElement): Promise<CapturedImage> {
   }
 }
 
-function fitImageDimensions(
-  pixelWidth: number,
-  pixelHeight: number,
-  maxWidth: number,
-  maxHeight: number,
-): { width: number; height: number } {
-  const ratio = pixelHeight / pixelWidth;
-  let width = maxWidth;
-  let height = width * ratio;
-
-  if (height > maxHeight) {
-    height = maxHeight;
-    width = height / ratio;
-  }
-
-  return { width, height };
-}
-
 function getPageMetrics(doc: jsPDF) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -76,15 +64,29 @@ function getPageMetrics(doc: jsPDF) {
   return { pageWidth, pageHeight, contentWidth };
 }
 
-function ensureVerticalSpace(doc: jsPDF, currentY: number, neededHeight: number): number {
+function getMaxContentHeight(doc: jsPDF): number {
   const { pageHeight } = getPageMetrics(doc);
+  return pageHeight - PDF_MARGIN * 2;
+}
 
-  if (currentY + neededHeight > pageHeight - PDF_MARGIN) {
-    doc.addPage();
-    return PDF_MARGIN;
+function computeImageLayout(
+  pixelWidth: number,
+  pixelHeight: number,
+  contentWidth: number,
+  maxHeight: number,
+): { width: number; height: number; x: number } {
+  const ratio = pixelHeight / pixelWidth;
+  let width = contentWidth;
+  let height = width * ratio;
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height / ratio;
   }
 
-  return currentY;
+  const x = PDF_MARGIN + (contentWidth - width) / 2;
+
+  return { width, height, x };
 }
 
 function drawPdfHeader(doc: jsPDF, filters: ReportPdfFilters, generatedAt: string): number {
@@ -141,9 +143,14 @@ function drawPdfHeader(doc: jsPDF, filters: ReportPdfFilters, generatedAt: strin
 }
 
 function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
-  const { contentWidth } = getPageMetrics(doc);
+  const { pageHeight, contentWidth } = getPageMetrics(doc);
+  const titleBlockHeight = 12;
 
-  y = ensureVerticalSpace(doc, y, 12);
+  if (y + titleBlockHeight > pageHeight - PDF_MARGIN) {
+    doc.addPage();
+    y = PDF_MARGIN;
+  }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(30, 41, 59);
@@ -159,30 +166,39 @@ function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
 
 async function addCapturedSection(
   doc: jsPDF,
-  title: string,
+  title: string | null,
   element: HTMLElement,
   startY: number,
 ): Promise<number> {
-  let y = drawSectionTitle(doc, title, startY);
-  const captured = await captureElement(element);
-  const dimensions = await loadImageDimensions(captured.dataUrl);
-  const { pageHeight, contentWidth } = getPageMetrics(doc);
+  let y = startY;
 
-  const maxHeight = pageHeight - PDF_MARGIN - y;
-  const fitted = fitImageDimensions(dimensions.width, dimensions.height, contentWidth, maxHeight);
-
-  y = ensureVerticalSpace(doc, y, fitted.height + 4);
-
-  if (y === PDF_MARGIN) {
+  if (title) {
     y = drawSectionTitle(doc, title, y);
   }
 
-  const finalMaxHeight = pageHeight - PDF_MARGIN - y;
-  const finalFit = fitImageDimensions(dimensions.width, dimensions.height, contentWidth, finalMaxHeight);
+  const captured = await captureElement(element);
+  const dimensions = await loadImageDimensions(captured.dataUrl);
+  const { pageHeight, contentWidth } = getPageMetrics(doc);
+  const maxPageHeight = getMaxContentHeight(doc);
 
-  doc.addImage(captured.dataUrl, "PNG", PDF_MARGIN, y, finalFit.width, finalFit.height);
+  const layout = computeImageLayout(
+    dimensions.width,
+    dimensions.height,
+    contentWidth,
+    maxPageHeight,
+  );
 
-  return y + finalFit.height + 8;
+  const remainingSpace = pageHeight - PDF_MARGIN - y;
+
+  // Golden rule: never split an image across pages — start fresh page if it won't fit.
+  if (layout.height > remainingSpace) {
+    doc.addPage();
+    y = PDF_MARGIN;
+  }
+
+  doc.addImage(captured.dataUrl, "PNG", layout.x, y, layout.width, layout.height);
+
+  return y + layout.height + SECTION_GAP;
 }
 
 export type GenerateReportPdfParams = {
@@ -207,7 +223,7 @@ export async function generateReportPdf({
     let cursorY = drawPdfHeader(doc, filters, generatedAt);
 
     cursorY = await addCapturedSection(doc, "Executive Summary", summaryElement, cursorY);
-    cursorY = await addCapturedSection(doc, "Visual Analytics", chartsElement, cursorY);
+    cursorY = await addCapturedSection(doc, null, chartsElement, cursorY);
 
     cursorY = drawSectionTitle(doc, "Meal Log Details", cursorY);
 

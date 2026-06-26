@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -23,7 +24,18 @@ type ReportAnalyticsChartsProps = {
   distributionData: DistributionPoint[];
   departmentData: DepartmentPoint[];
   loading?: boolean;
+  showSectionHeader?: boolean;
 };
+
+const LABEL_LIST_PROPS = {
+  fill: "#475569",
+  fontSize: 12,
+  fontWeight: 600,
+} as const;
+
+function pieSliceLabel({ name, percent }: { name?: string; percent?: number }) {
+  return `${name ?? ""} (${((percent ?? 0) * 100).toFixed(0)}%)`;
+}
 
 function ChartSkeleton({ height = 280 }: { height?: number }) {
   return (
@@ -48,6 +60,7 @@ export default function ReportAnalyticsCharts({
   distributionData,
   departmentData,
   loading = false,
+  showSectionHeader = true,
 }: ReportAnalyticsChartsProps) {
   const trendTitle =
     trendGranularity === "hour"
@@ -60,12 +73,14 @@ export default function ReportAnalyticsCharts({
 
   return (
     <section className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Analytics Overview</h3>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Live visualizations based on your current filters.
-        </p>
-      </div>
+      {showSectionHeader && (
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Analytics Overview</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Live visualizations based on your current filters.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
@@ -78,7 +93,7 @@ export default function ReportAnalyticsCharts({
               <EmptyChartState message="No trend data for this period." />
             ) : useLineChart ? (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+                <LineChart data={trendData} margin={{ top: 20, right: 8, left: -16, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.3} vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -100,12 +115,14 @@ export default function ReportAnalyticsCharts({
                     dot={{ r: 3, fill: "#6366f1" }}
                     activeDot={{ r: 5 }}
                     isAnimationActive={false}
-                  />
+                  >
+                    <LabelList dataKey="count" position="top" {...LABEL_LIST_PROPS} />
+                  </Line>
                 </LineChart>
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+                <BarChart data={trendData} margin={{ top: 20, right: 8, left: -16, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.3} vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -120,7 +137,9 @@ export default function ReportAnalyticsCharts({
                     contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
                     formatter={(value) => [`${value} meal(s)`, "Total"]}
                   />
-                  <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                  <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+                    <LabelList dataKey="count" position="top" {...LABEL_LIST_PROPS} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -148,6 +167,8 @@ export default function ReportAnalyticsCharts({
                     outerRadius={90}
                     paddingAngle={3}
                     isAnimationActive={false}
+                    label={pieSliceLabel}
+                    labelLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
                   >
                     {distributionData.map((entry) => (
                       <Cell key={entry.type} fill={entry.fill} />
@@ -180,7 +201,7 @@ export default function ReportAnalyticsCharts({
                 <BarChart
                   data={departmentData}
                   layout="vertical"
-                  margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
+                  margin={{ top: 4, right: 36, left: 8, bottom: 4 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.3} horizontal={false} />
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -196,7 +217,9 @@ export default function ReportAnalyticsCharts({
                     contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
                     formatter={(value) => [`${value} meal(s)`, "Total"]}
                   />
-                  <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={24} isAnimationActive={false} />
+                  <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={24} isAnimationActive={false}>
+                    <LabelList dataKey="count" position="right" {...LABEL_LIST_PROPS} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
