@@ -7,7 +7,6 @@ import {
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
-import { openBarcodeDraftEmail } from "../lib/barcodeEmail";
 
 type CreateEmployeeResponse = {
   message?: string;
@@ -22,12 +21,14 @@ export default function AddEmployeeForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [createdEmployee, setCreatedEmployee] = useState<EmployeeRecord | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setSuccess(null);
     setError(null);
+    setCreatedEmployee(null);
 
     try {
       const response = await authFetch(`${API_BASE_URL}/admin/employees`, {
@@ -44,10 +45,10 @@ export default function AddEmployeeForm() {
 
       if (response.status === 201 && data?.data) {
         setSuccess(data.message ?? "Employee created successfully.");
+        setCreatedEmployee(data.data);
         setName("");
         setDepartment("");
         setEmail("");
-        openBarcodeDraftEmail(data.data.email, data.data.name, data.data.uid);
         return;
       }
 
@@ -66,17 +67,56 @@ export default function AddEmployeeForm() {
   const inputClassName =
     "mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-900";
 
+  const draftEmailEmployee = createdEmployee;
+  const draftBarcodeUrl = draftEmailEmployee
+    ? `${process.env.NEXT_PUBLIC_API_URL}/barcodes/${draftEmailEmployee.uid}.png`
+    : "";
+  const draftSubject = draftEmailEmployee
+    ? `[Action Required] Your Meal Quota Barcode - ${draftEmailEmployee.name}`
+    : "";
+  const draftBody = draftEmailEmployee
+    ? [
+        `Dear ${draftEmailEmployee.name},`,
+        "",
+        "We are pleased to inform you that your meal quota has been successfully registered.",
+        "Please find your personal identification barcode below to access your meals.",
+        "",
+        "Barcode Image:",
+        draftBarcodeUrl,
+        "",
+        "Important:",
+        "- Please keep this barcode confidential.",
+        "- Scan this barcode at the designated terminal during your scheduled meal time.",
+        "",
+        "Best regards,",
+        "IT Administration Team",
+        "Meal Quota System",
+      ].join("\n")
+    : "";
+
   return (
     <div>
       {success && (
         <div
           role="alert"
-          className="mb-6 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+          className="mb-6 flex flex-col items-start justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
         >
-          <svg className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p>{success}</p>
+          <div className="flex items-start gap-3">
+            <svg className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>{success}</p>
+          </div>
+          {draftEmailEmployee && (
+            <a
+              href={`mailto:${draftEmailEmployee.email}?subject=${encodeURIComponent(draftSubject)}&body=${encodeURIComponent(draftBody)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+            >
+              Draft Email
+            </a>
+          )}
         </div>
       )}
 
@@ -159,7 +199,7 @@ export default function AddEmployeeForm() {
                 Saving...
               </>
             ) : (
-              "Save & Draft Email"
+              "Save Employee"
             )}
           </button>
         </div>
