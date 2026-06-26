@@ -6,7 +6,7 @@ type ConfirmDialogProps = {
   description: React.ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
-  variant?: "danger" | "primary";
+  variant?: "danger" | "primary" | "warning";
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -30,7 +30,9 @@ export default function ConfirmDialog({
   const confirmClassName =
     variant === "danger"
       ? "inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-red-400"
-      : "inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400";
+      : variant === "warning"
+        ? "inline-flex items-center justify-center rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-amber-300"
+        : "inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400";
 
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4">

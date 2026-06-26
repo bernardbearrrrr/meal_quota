@@ -17,6 +17,7 @@ type EmployeeDetailModalProps = {
   onClose: () => void;
   onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
   onStatusUpdated?: (employee: EmployeeRecord, message: string) => void;
+  onBarcodeReset?: (employee: EmployeeRecord, message: string) => void;
   refreshData: () => Promise<void>;
 };
 
@@ -31,12 +32,18 @@ type StatusUpdateResponse = {
   data?: EmployeeRecord;
 };
 
+type ResetBarcodeResponse = {
+  message?: string;
+  data?: EmployeeRecord;
+};
+
 export default function EmployeeDetailModal({
   employee,
   isOpen,
   onClose,
   onQuotaUpdated,
   onStatusUpdated,
+  onBarcodeReset,
   refreshData,
 }: EmployeeDetailModalProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,7 +51,9 @@ export default function EmployeeDetailModal({
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [resetSaving, setResetSaving] = useState(false);
   const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const isInactive = employee.status === "inactive";
 
   useEffect(() => {
@@ -139,6 +148,37 @@ export default function EmployeeDetailModal({
       // Parent handles connection errors via toast
     } finally {
       setStatusSaving(false);
+    }
+  }
+
+  async function handleResetBarcode(id: number) {
+    if (employee.status !== "active") {
+      return;
+    }
+
+    setResetSaving(true);
+
+    try {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${id}/reset-barcode`, {
+        method: "PATCH",
+      });
+
+      if (response.status >= 500) {
+        return;
+      }
+
+      const data = await parseJsonResponse<ResetBarcodeResponse>(response);
+
+      if (response.ok && data?.data) {
+        setShowResetConfirm(false);
+        onBarcodeReset?.(data.data, data.message ?? "Barcode successfully reset.");
+        await refreshData();
+        return;
+      }
+    } catch {
+      // Parent handles connection errors via toast
+    } finally {
+      setResetSaving(false);
     }
   }
 
@@ -290,6 +330,7 @@ export default function EmployeeDetailModal({
 
           <div className={`rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 ${isInactive ? "opacity-40" : ""}`}>
             <QRCodeCanvas
+              key={employee.uid}
               ref={qrCanvasRef}
               value={employee.uid}
               size={160}
@@ -298,18 +339,53 @@ export default function EmployeeDetailModal({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={handleDownloadQr}
-            disabled={isInactive}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
-            </svg>
-            Download QR
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleDownloadQr}
+              disabled={isInactive}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
+              </svg>
+              Download QR
+            </button>
+            {!isInactive && (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                disabled={resetSaving}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Reset Barcode
+              </button>
+            )}
+          </div>
         </section>
+
+        <ConfirmDialog
+          isOpen={showResetConfirm}
+          title="Reset Employee Barcode"
+          description={
+            <>
+              <p>Are you sure? This will invalidate the previous barcode immediately.</p>
+              <p className="mt-3">
+                A new UID will be generated for <strong>{employee.name}</strong>. Any existing barcode
+                links or QR codes will stop working, and you will need to send the updated link via Draft Email.
+              </p>
+            </>
+          }
+          confirmLabel="Yes, Reset Barcode"
+          cancelLabel="Cancel"
+          variant="warning"
+          loading={resetSaving}
+          onConfirm={() => void handleResetBarcode(employee.id)}
+          onCancel={() => setShowResetConfirm(false)}
+        />
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/40">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
