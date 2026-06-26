@@ -7,6 +7,8 @@ use App\Models\MealLog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -57,6 +59,169 @@ class AdminController extends Controller
         return response()->json([
             'message' => 'Employee created successfully.',
             'data' => $this->formatEmployee($employee),
+        ], 201);
+    }
+
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+        ]);
+
+        $handle = fopen($request->file('file')->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json([
+                'message' => 'Unable to read the uploaded file.',
+            ], 422);
+        }
+
+        $headers = fgetcsv($handle);
+
+        if ($headers === false) {
+            fclose($handle);
+
+            return response()->json([
+                'message' => 'The CSV file is empty.',
+            ], 422);
+        }
+
+        $expectedHeaders = ['name', 'department', 'position', 'email'];
+        $normalizedHeaders = array_map(
+            fn ($header) => strtolower(trim((string) $header)),
+            $headers,
+        );
+
+        if ($normalizedHeaders !== $expectedHeaders) {
+            fclose($handle);
+
+            return response()->json([
+                'message' => 'Invalid CSV headers. Expected: name, department, position, email.',
+            ], 422);
+        }
+
+        $parsedRows = [];
+        $lineNumber = 1;
+
+        while (($data = fgetcsv($handle)) !== false) {
+            $lineNumber++;
+
+            if ($this->isCsvRowEmpty($data)) {
+                continue;
+            }
+
+            if (count($data) < 4) {
+                $parsedRows[] = [
+                    'line' => $lineNumber,
+                    'error' => 'Row has fewer columns than expected.',
+                ];
+
+                continue;
+            }
+
+            $parsedRows[] = [
+                'line' => $lineNumber,
+                'data' => [
+                    'name' => trim((string) $data[0]),
+                    'department' => trim((string) $data[1]),
+                    'position' => trim((string) $data[2]),
+                    'email' => trim((string) $data[3]),
+                ],
+            ];
+        }
+
+        fclose($handle);
+
+        if ($parsedRows === []) {
+            return response()->json([
+                'message' => 'The CSV file contains no employee data.',
+            ], 422);
+        }
+
+        $errors = [];
+        $validRows = [];
+        $seenEmails = [];
+
+        foreach ($parsedRows as $parsedRow) {
+            $line = $parsedRow['line'];
+
+            if (isset($parsedRow['error'])) {
+                $errors[] = [
+                    'row' => $line,
+                    'message' => $parsedRow['error'],
+                ];
+
+                continue;
+            }
+
+            $rowData = $parsedRow['data'];
+            $validator = Validator::make($rowData, [
+                'name' => ['required', 'string', 'max:255'],
+                'department' => ['required', 'string', 'max:255'],
+                'position' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', 'max:255'],
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $line,
+                    'message' => $validator->errors()->first(),
+                ];
+
+                continue;
+            }
+
+            $emailKey = strtolower($rowData['email']);
+
+            if (isset($seenEmails[$emailKey])) {
+                $errors[] = [
+                    'row' => $line,
+                    'message' => "Duplicate email in CSV (also on row {$seenEmails[$emailKey]}).",
+                ];
+
+                continue;
+            }
+
+            $seenEmails[$emailKey] = $line;
+
+            if (Employee::query()->where('email', $rowData['email'])->whereNull('deleted_at')->exists()) {
+                $errors[] = [
+                    'row' => $line,
+                    'message' => 'Email has already been registered.',
+                ];
+
+                continue;
+            }
+
+            $validRows[] = $rowData;
+        }
+
+        if ($errors !== []) {
+            return response()->json([
+                'message' => 'Import failed. No employees were imported.',
+                'errors' => $errors,
+            ], 422);
+        }
+
+        $importedCount = DB::transaction(function () use ($validRows) {
+            $count = 0;
+
+            foreach ($validRows as $rowData) {
+                Employee::create([
+                    ...$rowData,
+                    'status' => 'active',
+                ]);
+                $count++;
+            }
+
+            return $count;
+        });
+
+        return response()->json([
+            'message' => "Successfully imported {$importedCount} employee".($importedCount === 1 ? '' : 's').'.',
+            'data' => [
+                'imported_count' => $importedCount,
+            ],
         ], 201);
     }
 
@@ -257,6 +422,24 @@ class AdminController extends Controller
                 'unique_employees' => $logs->pluck('employee_id')->unique()->count(),
             ],
         ]);
+    }
+
+    /**
+     * @param  array<int, string|null>|false  $row
+     */
+    private function isCsvRowEmpty(array|false $row): bool
+    {
+        if ($row === false || $row === []) {
+            return true;
+        }
+
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
