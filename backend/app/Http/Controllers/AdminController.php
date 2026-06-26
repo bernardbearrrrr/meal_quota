@@ -48,6 +48,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'department' => ['required', 'string', 'max:255'],
+            'position' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('employees', 'email')->whereNull('deleted_at')],
         ]);
 
@@ -233,6 +234,7 @@ class AdminController extends Controller
             'uid' => $employee->uid,
             'name' => $employee->name,
             'department' => $employee->department,
+            'position' => $employee->position,
             'email' => $employee->email,
             'is_active' => $employee->is_active,
             'uid_version' => $employee->uid_version,
