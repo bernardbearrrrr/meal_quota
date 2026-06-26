@@ -165,6 +165,7 @@ export default function AdminMealLogsTable() {
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Employee ID</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Meal Type</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Served At</th>
@@ -173,13 +174,13 @@ export default function AdminMealLogsTable() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading meal logs...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No meal logs found.
                   </td>
                 </tr>
@@ -188,6 +189,17 @@ export default function AdminMealLogsTable() {
                   <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">
                       {log.employee.name}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      {log.employee.type === "intern" ? (
+                        <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                          Intern
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-slate-600 dark:text-slate-300">
+                          {log.employee.employee_id || "—"}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                       {log.employee.department}

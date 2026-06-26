@@ -152,11 +152,15 @@ export async function loginRequest(credentials: LoginCredentials): Promise<Respo
 
 export type EmployeeStatus = "active" | "inactive";
 
+export type EmployeeType = "associate" | "intern";
+
 export type EmployeeRecord = {
   id: number;
   name: string;
   department: string;
   position: string;
+  type?: EmployeeType;
+  employee_id?: string | null;
   email: string;
   uid: string;
   status?: EmployeeStatus;
@@ -166,6 +170,22 @@ export type EmployeeRecord = {
   created_at?: string;
   updated_at?: string;
 };
+
+export type EmployeePayload = {
+  name: string;
+  department: string;
+  position: string;
+  email: string;
+  type: EmployeeType;
+  employee_id?: string | null;
+};
+
+export async function updateEmployee(id: number, data: EmployeePayload): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/admin/employees/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
 
 export function getEmployeeStatus(employee: EmployeeRecord): EmployeeStatus {
   if (employee.status === "active" || employee.status === "inactive") {
@@ -231,6 +251,8 @@ export type MealLogRecord = {
   employee: {
     name: string;
     department: string;
+    type?: EmployeeType;
+    employee_id?: string | null;
   };
   meal_date: string;
   served_at: string;

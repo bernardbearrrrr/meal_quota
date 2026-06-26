@@ -17,6 +17,7 @@ type EmployeeDetailModalProps = {
   onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
   onStatusUpdated?: (employee: EmployeeRecord, message: string) => void;
   onBarcodeReset?: (employee: EmployeeRecord, message: string) => void;
+  onEdit?: (employee: EmployeeRecord) => void;
   refreshData: () => Promise<void>;
 };
 
@@ -43,6 +44,7 @@ export default function EmployeeDetailModal({
   onQuotaUpdated,
   onStatusUpdated,
   onBarcodeReset,
+  onEdit,
   refreshData,
 }: EmployeeDetailModalProps) {
   const [quotaInput, setQuotaInput] = useState<string>(String(employee.quota_today ?? 1));
@@ -249,6 +251,28 @@ export default function EmployeeDetailModal({
         </div>
 
         <dl className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Type</dt>
+              <dd className="mt-1">
+                {employee.type === "intern" ? (
+                  <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                    Intern
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                    Associate
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Employee ID</dt>
+              <dd className="mt-1 font-mono text-sm text-slate-900 dark:text-white">
+                {employee.type === "intern" ? "—" : employee.employee_id || "—"}
+              </dd>
+            </div>
+          </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Position</dt>
             <dd className="mt-1 text-sm text-slate-900 dark:text-white">{employee.position || "—"}</dd>
@@ -459,6 +483,18 @@ export default function EmployeeDetailModal({
           >
             Close
           </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(employee)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              </svg>
+              Edit
+            </button>
+          )}
           {employee.status === "active" && (
             <a
               href={buildBarcodeMailtoHref({

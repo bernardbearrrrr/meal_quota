@@ -5,37 +5,47 @@ import {
   API_BASE_URL,
   authFetch,
   EmployeeRecord,
+  EmployeeType,
   parseJsonResponse,
+  updateEmployee,
 } from "../lib/api";
 import { buildBarcodeMailtoHref, DRAFT_EMAIL_LINK_CLASS } from "../lib/barcodeMailto";
 import ConfirmDialog from "./ConfirmDialog";
 
-type CreateEmployeeResponse = {
+type SaveEmployeeResponse = {
   message?: string;
   data?: EmployeeRecord;
   errors?: Record<string, string[]>;
 };
 
 type AddEmployeeFormProps = {
+  employee?: EmployeeRecord;
   onSuccess?: (employee: EmployeeRecord) => void;
   onCancel?: () => void;
   showCancel?: boolean;
 };
 
 export default function AddEmployeeForm({
+  employee,
   onSuccess,
   onCancel,
   showCancel = false,
 }: AddEmployeeFormProps) {
-  const [name, setName] = useState("");
-  const [department, setDepartment] = useState("");
-  const [position, setPosition] = useState("");
-  const [email, setEmail] = useState("");
+  const isEdit = Boolean(employee);
+
+  const [name, setName] = useState(employee?.name ?? "");
+  const [department, setDepartment] = useState(employee?.department ?? "");
+  const [position, setPosition] = useState(employee?.position ?? "");
+  const [email, setEmail] = useState(employee?.email ?? "");
+  const [type, setType] = useState<EmployeeType>(employee?.type ?? "associate");
+  const [employeeId, setEmployeeId] = useState(employee?.employee_id ?? "");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdEmployee, setCreatedEmployee] = useState<EmployeeRecord | null>(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+  const isAssociate = type === "associate";
 
   async function submitEmployee() {
     setLoading(true);
@@ -43,26 +53,43 @@ export default function AddEmployeeForm({
     setError(null);
     setCreatedEmployee(null);
 
+    const payload = {
+      name,
+      department,
+      position,
+      email,
+      type,
+      employee_id: isAssociate ? employeeId.trim() : null,
+    };
+
     try {
-      const response = await authFetch(`${API_BASE_URL}/admin/employees`, {
-        method: "POST",
-        body: JSON.stringify({ name, department, position, email }),
-      });
+      const response = isEdit && employee
+        ? await updateEmployee(employee.id, payload)
+        : await authFetch(`${API_BASE_URL}/admin/employees`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
 
       if (response.status >= 500) {
         setError("Server error. Please try again later.");
         return;
       }
 
-      const data = await parseJsonResponse<CreateEmployeeResponse>(response);
+      const data = await parseJsonResponse<SaveEmployeeResponse>(response);
 
-      if (response.status === 201 && data?.data) {
-        setSuccess(data.message ?? "Employee created successfully.");
-        setCreatedEmployee(data.data);
-        setName("");
-        setDepartment("");
-        setPosition("");
-        setEmail("");
+      if (response.ok && data?.data) {
+        setSuccess(data.message ?? (isEdit ? "Employee updated successfully." : "Employee created successfully."));
+
+        if (!isEdit) {
+          setCreatedEmployee(data.data);
+          setName("");
+          setDepartment("");
+          setPosition("");
+          setEmail("");
+          setType("associate");
+          setEmployeeId("");
+        }
+
         onSuccess?.(data.data);
         return;
       }
@@ -71,7 +98,7 @@ export default function AddEmployeeForm({
         ? Object.values(data.errors).flat().join(" ")
         : null;
 
-      setError(validationErrors ?? data?.message ?? "Failed to create employee. Please try again.");
+      setError(validationErrors ?? data?.message ?? "Failed to save employee. Please try again.");
     } catch {
       setError("Unable to connect to the server. Please check the API URL configuration.");
     } finally {
@@ -133,11 +160,11 @@ export default function AddEmployeeForm({
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="add-employee-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="employee-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Full Name
           </label>
           <input
-            id="add-employee-name"
+            id="employee-name"
             name="name"
             type="text"
             required
@@ -150,11 +177,60 @@ export default function AddEmployeeForm({
         </div>
 
         <div>
-          <label htmlFor="add-employee-position" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <span className="block text-sm font-medium text-slate-700 dark:text-slate-300">Employee Type</span>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {(["associate", "intern"] as const).map((option) => (
+              <label
+                key={option}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  type === option
+                    ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-300"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                } ${loading ? "cursor-not-allowed opacity-60" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="type"
+                  value={option}
+                  checked={type === option}
+                  onChange={() => setType(option)}
+                  disabled={loading}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                {option === "associate" ? "Associate" : "Intern"}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {isAssociate && (
+          <div>
+            <label htmlFor="employee-id" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Employee ID
+            </label>
+            <input
+              id="employee-id"
+              name="employee_id"
+              type="text"
+              required={isAssociate}
+              value={employeeId}
+              onChange={(event) => setEmployeeId(event.target.value)}
+              disabled={loading}
+              placeholder="e.g. ASC-0012"
+              className={inputClassName}
+            />
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              Required and unique for associates. Interns do not have an Employee ID.
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="employee-position" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Position
           </label>
           <input
-            id="add-employee-position"
+            id="employee-position"
             name="position"
             type="text"
             required
@@ -167,11 +243,11 @@ export default function AddEmployeeForm({
         </div>
 
         <div>
-          <label htmlFor="add-employee-department" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="employee-department" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Department
           </label>
           <input
-            id="add-employee-department"
+            id="employee-department"
             name="department"
             type="text"
             required
@@ -184,11 +260,11 @@ export default function AddEmployeeForm({
         </div>
 
         <div>
-          <label htmlFor="add-employee-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="employee-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Email Address
           </label>
           <input
-            id="add-employee-email"
+            id="employee-email"
             name="email"
             type="email"
             required
@@ -224,6 +300,8 @@ export default function AddEmployeeForm({
                 </svg>
                 Saving...
               </>
+            ) : isEdit ? (
+              "Save Changes"
             ) : (
               "Save Employee"
             )}
@@ -233,7 +311,7 @@ export default function AddEmployeeForm({
 
       <ConfirmDialog
         isOpen={showSaveConfirm}
-        title="Confirm Employee Registration"
+        title={isEdit ? "Confirm Employee Update" : "Confirm Employee Registration"}
         description={
           <>
             <p>Please review the following details before proceeding:</p>
@@ -241,6 +319,14 @@ export default function AddEmployeeForm({
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500 dark:text-slate-400">Full Name</dt>
                 <dd className="font-medium text-right">{name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Type</dt>
+                <dd className="font-medium text-right">{isAssociate ? "Associate" : "Intern"}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Employee ID</dt>
+                <dd className="font-medium text-right">{isAssociate ? employeeId || "—" : "Intern (none)"}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500 dark:text-slate-400">Position</dt>
@@ -258,7 +344,7 @@ export default function AddEmployeeForm({
             <p className="mt-4">Is this information complete and correct?</p>
           </>
         }
-        confirmLabel="Confirm & Save"
+        confirmLabel={isEdit ? "Confirm & Update" : "Confirm & Save"}
         cancelLabel="Review Again"
         variant="primary"
         loading={loading}

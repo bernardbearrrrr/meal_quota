@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddEmployeeModal from "./AddEmployeeModal";
 import BulkImportModal from "./BulkImportModal";
+import EditEmployeeModal from "./EditEmployeeModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
 import {
   API_BASE_URL,
@@ -31,6 +32,7 @@ export default function EmployeeTable() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -121,6 +123,18 @@ export default function EmployeeTable() {
 
   function handleBulkImportSuccess(message: string) {
     setToast(message);
+    void refreshData();
+  }
+
+  function handleEditEmployee(employee: EmployeeRecord) {
+    setSelectedEmployee(null);
+    setEditingEmployee(employee);
+  }
+
+  function handleEmployeeUpdated(updated: EmployeeRecord) {
+    applyEmployeeUpdate(updated);
+    setEditingEmployee(null);
+    setToast(`${updated.name}'s details have been updated.`);
     void refreshData();
   }
 
@@ -251,6 +265,9 @@ export default function EmployeeTable() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Name
                 </th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:table-cell sm:px-6">
+                  Employee ID
+                </th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:table-cell sm:px-6">
                   Position
                 </th>
@@ -277,13 +294,13 @@ export default function EmployeeTable() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading employees...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     {hasActiveFilter ? "No employees match your filters." : "No employees registered yet."}
                   </td>
                 </tr>
@@ -303,6 +320,17 @@ export default function EmployeeTable() {
                   >
                     <td className={`whitespace-nowrap px-4 py-4 text-sm font-medium sm:px-6 ${isInactive ? "text-slate-500 dark:text-slate-500" : "text-slate-900 dark:text-white"}`}>
                       {employee.name}
+                    </td>
+                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm md:table-cell sm:px-6">
+                      {employee.type === "intern" ? (
+                        <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+                          Intern
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                          {employee.employee_id || "—"}
+                        </span>
+                      )}
                     </td>
                     <td className="hidden whitespace-nowrap px-4 py-4 text-sm sm:table-cell sm:px-6">
                       {employee.position || "—"}
@@ -377,9 +405,17 @@ export default function EmployeeTable() {
           onQuotaUpdated={handleQuotaUpdated}
           onStatusUpdated={handleStatusUpdated}
           onBarcodeReset={handleBarcodeReset}
+          onEdit={handleEditEmployee}
           refreshData={refreshData}
         />
       )}
+
+      <EditEmployeeModal
+        employee={editingEmployee}
+        isOpen={Boolean(editingEmployee)}
+        onClose={() => setEditingEmployee(null)}
+        onEmployeeUpdated={handleEmployeeUpdated}
+      />
     </div>
   );
 }

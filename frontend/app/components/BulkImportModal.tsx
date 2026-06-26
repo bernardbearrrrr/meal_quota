@@ -20,12 +20,16 @@ const EXAMPLE_ROWS = [
     department: "Human Resources",
     position: "HR Manager",
     email: "jane.doe@company.com",
+    type: "associate",
+    employee_id: "ASC-0012",
   },
   {
     name: "John Smith",
     department: "Engineering",
-    position: "Software Engineer",
+    position: "Intern",
     email: "john.smith@company.com",
+    type: "intern",
+    employee_id: "",
   },
 ];
 
@@ -190,8 +194,10 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImpo
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
               <h4 className="text-sm font-semibold text-slate-900 dark:text-white">CSV Format Requirements</h4>
               <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600 dark:text-slate-400">
-                <li>First row must contain headers exactly: <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">name, department, position, email</code></li>
+                <li>First row must contain headers exactly: <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">name, department, position, email, type, employee_id</code></li>
                 <li>Header names are case-insensitive (e.g. <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">Name</code> is valid)</li>
+                <li><code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">type</code> must be <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">associate</code> or <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">intern</code> (defaults to associate if blank)</li>
+                <li>Associates require a unique <code className="rounded bg-slate-200 px-1 py-0.5 text-xs dark:bg-slate-700">employee_id</code>; interns must leave it empty</li>
                 <li>Each email must be unique and not already registered</li>
                 <li>Barcodes are generated automatically — no emails are sent during import</li>
               </ul>
@@ -213,6 +219,12 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImpo
                     <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       email
                     </th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      type
+                    </th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      employee_id
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
@@ -222,6 +234,8 @@ export default function BulkImportModal({ isOpen, onClose, onSuccess }: BulkImpo
                       <td className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{row.department}</td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{row.position}</td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{row.email}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{row.type}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300">{row.employee_id || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
