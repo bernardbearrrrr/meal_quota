@@ -115,11 +115,11 @@ function drawPdfHeader(doc: jsPDF, filters: ReportPdfFilters, generatedAt: strin
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text("MealQuota", PDF_MARGIN, 12);
+  doc.text("Hot Shoppes", PDF_MARGIN, 12);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("Enterprise Meal Quota Management", PDF_MARGIN, 19);
+  doc.text("Hot Shoppes — Enterprise Meal Management", PDF_MARGIN, 19);
 
   doc.setFontSize(9);
   doc.text(`Exported: ${generatedAt}`, pageWidth - PDF_MARGIN, 12, { align: "right" });
@@ -295,7 +295,7 @@ export async function generateReportPdf({
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184);
         doc.text(
-          `MealQuota Analytics Report — Page ${data.pageNumber} of ${pageCount}`,
+          `Hot Shoppes Analytics Report — Page ${data.pageNumber} of ${pageCount}`,
           pageWidth / 2,
           pageHeight - 6,
           { align: "center" },

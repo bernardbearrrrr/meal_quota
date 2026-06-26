@@ -101,7 +101,7 @@ export default function OperatorSidebar({
         <LogoMark />
         {showLabels && (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">MealQuota</p>
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">Hot Shoppes</p>
             <p className="truncate text-xs text-slate-500 dark:text-slate-400">Kantin</p>
           </div>
         )}

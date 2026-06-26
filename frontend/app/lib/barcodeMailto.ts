@@ -36,7 +36,7 @@ export function buildBarcodeMailtoHref({ email, name, position, uid }: BarcodeMa
     "",
     "Best regards,",
     "IT Administration Team",
-    "Meal Quota System",
+    "Hot Shoppes",
   ].join("\n");
 
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

@@ -107,7 +107,7 @@ export default function DashboardOverview() {
           <p className="mt-3 text-4xl font-bold text-slate-900 dark:text-white">
             {statsLoading ? "—" : (total ?? 0)}
           </p>
-          <p className="mt-2 text-xs text-slate-400">Registered in the meal quota system</p>
+          <p className="mt-2 text-xs text-slate-400">Registered in Hot Shoppes</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">

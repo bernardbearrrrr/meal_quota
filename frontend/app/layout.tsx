@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MealQuota Admin",
-  description: "HRD Admin Dashboard for the Meal Quota Management System",
+  title: "Hot Shoppes Admin",
+  description: "HRD Admin Dashboard for Hot Shoppes",
 };
 
 export default function RootLayout({
