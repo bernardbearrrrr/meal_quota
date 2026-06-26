@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { useEffect, useState } from "react";
 import {
   API_BASE_URL,
   authFetch,
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
-import { buildBarcodeMailtoHref, DRAFT_EMAIL_LINK_CLASS } from "../lib/barcodeMailto";
+import { buildBarcodeMailtoHref, DRAFT_EMAIL_LINK_CLASS, getBarcodeImageUrl } from "../lib/barcodeMailto";
 import ConfirmDialog from "./ConfirmDialog";
 
 type EmployeeDetailModalProps = {
@@ -46,7 +45,6 @@ export default function EmployeeDetailModal({
   onBarcodeReset,
   refreshData,
 }: EmployeeDetailModalProps) {
-  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [quotaInput, setQuotaInput] = useState<string>(String(employee.quota_today ?? 1));
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
@@ -54,12 +52,18 @@ export default function EmployeeDetailModal({
   const [resetSaving, setResetSaving] = useState(false);
   const [showResignConfirm, setShowResignConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [barcodeCacheKey, setBarcodeCacheKey] = useState(() => Date.now());
   const isInactive = employee.status === "inactive";
+  const barcodeImageSrc = `${getBarcodeImageUrl(employee.uid)}?t=${barcodeCacheKey}`;
 
   useEffect(() => {
     setQuotaInput(String(employee.quota_today ?? 1));
     setQuotaError(null);
   }, [employee.id, employee.quota_today]);
+
+  useEffect(() => {
+    setBarcodeCacheKey(Date.now());
+  }, [employee.uid]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -171,6 +175,7 @@ export default function EmployeeDetailModal({
 
       if (response.ok && data?.data) {
         setShowResetConfirm(false);
+        setBarcodeCacheKey(Date.now());
         onBarcodeReset?.(data.data, data.message ?? "Barcode successfully reset.");
         await refreshData();
         return;
@@ -182,18 +187,25 @@ export default function EmployeeDetailModal({
     }
   }
 
-  function handleDownloadQr() {
-    const canvas = qrCanvasRef.current;
+  async function handleDownloadQr() {
+    try {
+      const response = await fetch(barcodeImageSrc);
 
-    if (!canvas) {
-      return;
+      if (!response.ok) {
+        return;
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safeName = employee.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      link.download = `${safeName || "employee"}-barcode.png`;
+      link.href = objectUrl;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Ignore download failures silently
     }
-
-    const link = document.createElement("a");
-    const safeName = employee.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    link.download = `${safeName || "employee"}-qr-access.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
   }
 
   if (!isOpen) {
@@ -329,13 +341,13 @@ export default function EmployeeDetailModal({
           </div>
 
           <div className={`rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 ${isInactive ? "opacity-40" : ""}`}>
-            <QRCodeCanvas
-              key={employee.uid}
-              ref={qrCanvasRef}
-              value={employee.uid}
-              size={160}
-              level="H"
-              includeMargin
+            <img
+              key={`${employee.uid}-${barcodeCacheKey}`}
+              src={barcodeImageSrc}
+              alt={`Barcode for ${employee.name}`}
+              width={160}
+              height={160}
+              className="h-40 w-40 object-contain"
             />
           </div>
 
