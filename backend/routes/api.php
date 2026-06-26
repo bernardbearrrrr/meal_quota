@@ -11,6 +11,11 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/admin/employees', [AdminController::class, 'indexEmployees']);
     Route::post('/admin/employees', [AdminController::class, 'storeEmployee']);
     Route::post('/admin/employees/{employee}/resend-barcode', [AdminController::class, 'resendBarcode']);
+    Route::patch('/admin/employees/{employee}/quota', [AdminController::class, 'updateQuota']);
+
+    Route::get('/admin/meal-logs', [MealController::class, 'indexLogs']);
+    Route::get('/admin/analytics', [AdminController::class, 'analytics']);
+    Route::get('/admin/reports', [AdminController::class, 'report']);
 });
 
 Route::middleware(['auth:sanctum', 'role:operator'])->group(function () {

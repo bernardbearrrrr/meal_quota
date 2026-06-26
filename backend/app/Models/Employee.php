@@ -17,6 +17,7 @@ class Employee extends Model
         'email',
         'is_active',
         'uid_version',
+        'quota_today',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class Employee extends Model
         return [
             'is_active' => 'boolean',
             'uid_version' => 'integer',
+            'quota_today' => 'integer',
         ];
     }
 

@@ -4,11 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\MealLog;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class MealController extends Controller
 {
@@ -16,10 +14,14 @@ class MealController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'department' => ['nullable', 'string', 'max:255'],
+            'meal_type' => ['nullable', 'string', 'in:breakfast,lunch,dinner,other'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'show_all' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $showAll = $request->boolean('show_all');
@@ -38,6 +40,20 @@ class MealController extends Controller
             });
         }
 
+        if (! empty($validated['name'])) {
+            $name = $validated['name'];
+            $query->whereHas('employee', fn ($q) => $q->where('name', 'like', "%{$name}%"));
+        }
+
+        if (! empty($validated['department'])) {
+            $department = $validated['department'];
+            $query->whereHas('employee', fn ($q) => $q->where('department', 'like', "%{$department}%"));
+        }
+
+        if (! empty($validated['meal_type'])) {
+            $query->mealType($validated['meal_type']);
+        }
+
         if (! $showAll) {
             if (! empty($validated['start_date'])) {
                 $query->whereDate('meal_date', '>=', $validated['start_date']);
@@ -48,20 +64,11 @@ class MealController extends Controller
             }
         }
 
-        $paginator = $query->paginate(20);
+        $perPage = $validated['per_page'] ?? 20;
+        $paginator = $query->paginate($perPage);
 
         return response()->json([
-            'data' => collect($paginator->items())->map(function (MealLog $log) {
-                return [
-                    'id' => $log->id,
-                    'employee' => [
-                        'name' => $log->employee?->name,
-                        'department' => $log->employee?->department,
-                    ],
-                    'meal_date' => $log->meal_date->format('Y-m-d'),
-                    'served_at' => $log->served_at->format('l, d/m/Y H:i:s'),
-                ];
-            })->values(),
+            'data' => collect($paginator->items())->map(fn (MealLog $log) => $this->formatLog($log))->values(),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -91,34 +98,30 @@ class MealController extends Controller
                 ];
             }
 
-            $existingLog = MealLog::query()
+            $quota = max(0, (int) ($employee->quota_today ?? 1));
+
+            $claimedToday = MealLog::query()
                 ->where('employee_id', $employee->id)
                 ->whereDate('meal_date', today())
                 ->lockForUpdate()
-                ->exists();
+                ->count();
 
-            if ($existingLog) {
+            if ($claimedToday >= $quota) {
                 return [
                     'status' => 'ALREADY_CLAIMED',
                     'http_status' => 409,
-                    'message' => 'Employee has already claimed their meal today.',
+                    'message' => $quota <= 1
+                        ? 'Employee has already claimed their meal today.'
+                        : "Employee has reached today's quota ({$claimedToday}/{$quota}).",
                 ];
             }
 
-            try {
-                MealLog::create([
-                    'employee_id' => $employee->id,
-                    'meal_date' => today(),
-                    'served_at' => now(),
-                    'ip_address' => $request->ip(),
-                ]);
-            } catch (UniqueConstraintViolationException) {
-                return [
-                    'status' => 'ALREADY_CLAIMED',
-                    'http_status' => 409,
-                    'message' => 'Employee has already claimed their meal today.',
-                ];
-            }
+            MealLog::create([
+                'employee_id' => $employee->id,
+                'meal_date' => today(),
+                'served_at' => now(),
+                'ip_address' => $request->ip(),
+            ]);
 
             return [
                 'status' => 'GRANTED',
@@ -127,6 +130,11 @@ class MealController extends Controller
                     'name' => $employee->name,
                     'department' => $employee->department,
                 ],
+                'quota' => [
+                    'claimed_today' => $claimedToday + 1,
+                    'quota_today' => $quota,
+                    'remaining' => max(0, $quota - ($claimedToday + 1)),
+                ],
             ];
         });
 
@@ -134,5 +142,22 @@ class MealController extends Controller
         unset($result['http_status']);
 
         return response()->json($result, $httpStatus);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatLog(MealLog $log): array
+    {
+        return [
+            'id' => $log->id,
+            'employee' => [
+                'name' => $log->employee?->name,
+                'department' => $log->employee?->department,
+            ],
+            'meal_date' => $log->meal_date->format('Y-m-d'),
+            'served_at' => $log->served_at->format('l, d/m/Y H:i:s'),
+            'meal_type' => $log->meal_type,
+        ];
     }
 }
