@@ -94,7 +94,7 @@ class MealController extends Controller
                 return [
                     'status' => 'DENIED',
                     'http_status' => 422,
-                    'message' => 'Employee not found or inactive.',
+                    'message' => 'Invalid QR Code or inactive employee.',
                 ];
             }
 
@@ -111,12 +111,12 @@ class MealController extends Controller
                     'status' => 'ALREADY_CLAIMED',
                     'http_status' => 409,
                     'message' => $quota <= 1
-                        ? 'Employee has already claimed their meal today.'
-                        : "Employee has reached today's quota ({$claimedToday}/{$quota}).",
+                        ? "Quota for {$employee->name} is empty today."
+                        : "Quota for {$employee->name} is empty today ({$claimedToday}/{$quota}).",
                 ];
             }
 
-            MealLog::create([
+            $log = MealLog::create([
                 'employee_id' => $employee->id,
                 'meal_date' => today(),
                 'served_at' => now(),
@@ -130,6 +130,7 @@ class MealController extends Controller
                     'name' => $employee->name,
                     'department' => $employee->department,
                 ],
+                'meal_type' => $log->meal_type,
                 'quota' => [
                     'claimed_today' => $claimedToday + 1,
                     'quota_today' => $quota,
