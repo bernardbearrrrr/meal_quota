@@ -142,11 +142,12 @@ function drawPdfHeader(doc: jsPDF, filters: ReportPdfFilters, generatedAt: strin
   return y + 36;
 }
 
-function drawSectionTitle(doc: jsPDF, title: string, y: number): number {
+function drawSectionTitle(doc: jsPDF, title: string, y: number, options?: { allowPageBreak?: boolean }): number {
   const { pageHeight, contentWidth } = getPageMetrics(doc);
   const titleBlockHeight = 12;
+  const allowPageBreak = options?.allowPageBreak ?? true;
 
-  if (y + titleBlockHeight > pageHeight - PDF_MARGIN) {
+  if (allowPageBreak && y + titleBlockHeight > pageHeight - PDF_MARGIN) {
     doc.addPage();
     y = PDF_MARGIN;
   }
@@ -225,10 +226,14 @@ export async function generateReportPdf({
     cursorY = await addCapturedSection(doc, "Executive Summary", summaryElement, cursorY);
     cursorY = await addCapturedSection(doc, null, chartsElement, cursorY);
 
-    cursorY = drawSectionTitle(doc, "Meal Log Details", cursorY);
+    // Force a dedicated clean page for the meal log table (title + header stay together).
+    doc.addPage();
+    cursorY = PDF_MARGIN;
+    cursorY = drawSectionTitle(doc, "Meal Log Details", cursorY, { allowPageBreak: false });
 
     autoTable(doc, {
       startY: cursorY,
+      tableWidth: "auto",
       head: [["#", "Employee Name", "Department", "Date", "Time", "Meal Type"]],
       body: report.data.map((row, index) => [
         String(index + 1),
@@ -239,12 +244,15 @@ export async function generateReportPdf({
         MEAL_TYPE_LABELS[row.meal_type],
       ]),
       theme: "striped",
+      showHead: "everyPage",
+      rowPageBreak: "auto",
       styles: {
         fontSize: 8,
         cellPadding: 2.5,
         lineColor: [226, 232, 240],
         lineWidth: 0.1,
         textColor: [51, 65, 85],
+        overflow: "linebreak",
       },
       headStyles: {
         fillColor: HEADER_COLOR,
@@ -256,14 +264,14 @@ export async function generateReportPdf({
         fillColor: [248, 250, 252],
       },
       columnStyles: {
-        0: { cellWidth: 10, halign: "center" },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 24 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 26 },
+        0: { halign: "center", cellWidth: 12 },
+        1: { cellWidth: "auto" },
+        2: { cellWidth: "auto" },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 28 },
       },
-      margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+      margin: { top: PDF_MARGIN, left: PDF_MARGIN, right: PDF_MARGIN, bottom: PDF_MARGIN },
       didDrawPage: (data) => {
         const { pageWidth, pageHeight } = getPageMetrics(doc);
         const pageCount = doc.getNumberOfPages();
