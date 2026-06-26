@@ -70,20 +70,20 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-6 dark:border-slate-800">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600">
           <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">MealQuota</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Admin</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">MealQuota</p>
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400">Admin</p>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-4">
         {navItems.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href);
 
@@ -91,14 +91,14 @@ export default function AdminSidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              {label}
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{label}</span>
             </Link>
           );
         })}
