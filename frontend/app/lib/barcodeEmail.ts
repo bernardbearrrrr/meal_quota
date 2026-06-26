@@ -18,21 +18,26 @@ export function buildBarcodeDraftEmail(employee: BarcodeEmailEmployee): {
   mailtoUrl: string;
 } {
   const barcodeUrl = getBarcodeImageUrl(employee.uid);
-  const subject = `Barcode Meal Quota - ${employee.name}`;
+  const subject = `[Action Required] Your Meal Quota Barcode - ${employee.name}`;
   const body = [
-    `Hello ${employee.name},`,
+    `Dear ${employee.name},`,
     "",
-    "Your personal meal barcode for the cafeteria is ready.",
+    "We are pleased to inform you that your meal quota has been successfully registered. Please find your personal identification barcode below to access your meals.",
     "",
-    "You can view and save your barcode image using this link:",
+    "Barcode Image:",
     barcodeUrl,
     "",
-    "Please save this barcode to your phone and present it at the cafeteria scanner each day to redeem your meal quota.",
+    "Important:",
     "",
-    "This barcode is personal and non-transferable.",
+    "Please keep this barcode confidential.",
     "",
-    "Thank you,",
-    "HRD Meal Quota System",
+    "Scan this barcode at the designated terminal during your scheduled meal time.",
+    "",
+    "Should you have any questions or encounter any issues, please do not hesitate to contact the IT Administration team.",
+    "",
+    "Best regards,",
+    "IT Administration Team",
+    "Meal Quota System",
   ].join("\n");
 
   const mailtoUrl = `mailto:${encodeURIComponent(employee.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
