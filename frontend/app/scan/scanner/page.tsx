@@ -160,6 +160,22 @@ function WarningIcon({ className }: { className?: string }) {
   );
 }
 
+function MaximizeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9V5.25A1.5 1.5 0 0 1 5.25 3.75H9m11.25 5.25V5.25a1.5 1.5 0 0 0-1.5-1.5H15m5.25 11.25v3.75a1.5 1.5 0 0 1-1.5 1.5H15M3.75 15v3.75a1.5 1.5 0 0 0 1.5 1.5H9" />
+    </svg>
+  );
+}
+
+function MinimizeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75V7.5A1.5 1.5 0 0 1 7.5 9H3.75m11.25-5.25V7.5A1.5 1.5 0 0 0 16.5 9h3.75M9 20.25V16.5A1.5 1.5 0 0 0 7.5 15H3.75m11.25 5.25V16.5a1.5 1.5 0 0 1 1.5-1.5h3.75" />
+    </svg>
+  );
+}
+
 function ScannerFrame({ isActive }: { isActive: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
@@ -275,8 +291,10 @@ export default function ScannerPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraErrorType, setCameraErrorType] = useState<CameraErrorType | null>(null);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState<ScannerStatus>("idle");
 
+  const scannerContainerRef = useRef<HTMLDivElement>(null);
   const qrReaderRef = useRef<HTMLDivElement>(null);
   const html5QrCodeRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
   const processingRef = useRef(false);
@@ -455,6 +473,23 @@ export default function ScannerPage() {
     }, FEEDBACK_DURATION_MS);
   }, [clearPendingReset, resetScannerState]);
 
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      await scannerContainerRef.current?.requestFullscreen();
+    } catch {
+      setErrorMessage("Fullscreen mode is not available in this browser.");
+    }
+  }, []);
+
   const handleScan = useCallback(
     async (decodedText: string) => {
       clearPendingReset();
@@ -586,6 +621,26 @@ export default function ScannerPage() {
   }, [cameraError, scanResult, isVerifying, isScanning, initializeScanner]);
 
   useEffect(() => {
+    function handleFullscreenChange() {
+      const fullscreenElement = document.fullscreenElement;
+      const scannerIsFullscreen = fullscreenElement === scannerContainerRef.current;
+
+      setIsFullscreen(scannerIsFullscreen);
+      window.setTimeout(() => {
+        if (mountedRef.current && scannerIsFullscreen && !cameraError && !processingRef.current && !scanResult) {
+          void initializeScanner();
+        }
+      }, RESIZE_REINIT_DELAY_MS);
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [cameraError, initializeScanner, scanResult]);
+
+  useEffect(() => {
     const container = qrReaderRef.current;
 
     if (!container) {
@@ -710,21 +765,46 @@ export default function ScannerPage() {
           </div>
         )}
 
-        <div className="relative flex-1 overflow-hidden rounded-4xl border border-slate-800 bg-black shadow-2xl ring-1 ring-white/10">
-          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-linear-to-b from-black/70 to-transparent px-5 py-4 text-white">
+        <div
+          ref={scannerContainerRef}
+          className={`relative flex-1 overflow-hidden bg-black shadow-2xl ring-1 ring-white/10 transition-all duration-300 ease-in-out ${
+            isFullscreen
+              ? "h-screen w-screen rounded-none border-0"
+              : "rounded-4xl border border-slate-800"
+          }`}
+        >
+          <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-4 bg-linear-to-b from-black/75 to-transparent px-5 py-4 text-white">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Live Camera</p>
               <p className="text-sm font-semibold text-white/80">Keep QR code centered inside the frame</p>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur">
-              {MEAL_TYPE_LABELS[mealType]}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur">
+                {MEAL_TYPE_LABELS[mealType]}
+              </span>
+              <button
+                type="button"
+                onClick={() => void toggleFullscreen()}
+                aria-label={isFullscreen ? "Exit fullscreen scanner" : "Open fullscreen scanner"}
+                className="rounded-full bg-black/40 p-2 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              >
+                {isFullscreen ? (
+                  <MinimizeIcon className="h-5 w-5 shrink-0" />
+                ) : (
+                  <MaximizeIcon className="h-5 w-5 shrink-0" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div
             ref={qrReaderRef}
             id={SCANNER_ELEMENT_ID}
-            className="block min-h-[560px] w-full [&>div]:border-0! [&>video]:block [&>video]:min-h-[560px] [&>video]:w-full [&>video]:object-cover sm:min-h-[680px] sm:[&>video]:min-h-[680px]"
+            className={`block w-full [&>div]:border-0! [&>video]:block [&>video]:w-full [&>video]:object-cover ${
+              isFullscreen
+                ? "h-screen min-h-screen [&>video]:h-screen [&>video]:min-h-screen"
+                : "min-h-[560px] [&>video]:min-h-[560px] sm:min-h-[680px] sm:[&>video]:min-h-[680px]"
+            }`}
             style={{ display: "block" }}
           />
           {!scanResult && <ScannerFrame isActive={scannerStatus === "streaming" && !isVerifying} />}
