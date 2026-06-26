@@ -95,9 +95,12 @@ export type EmployeeRecord = {
   uid: string;
   is_active?: boolean;
   uid_version?: number;
+  quota_today?: number;
   created_at?: string;
   updated_at?: string;
 };
+
+export type MealType = "breakfast" | "lunch" | "dinner" | "other";
 
 export type EmployeesListResponse = {
   data: EmployeeRecord[];
@@ -119,6 +122,7 @@ export type MealLogRecord = {
   };
   meal_date: string;
   served_at: string;
+  meal_type?: MealType;
 };
 
 export type MealLogsListResponse = {
@@ -130,3 +134,65 @@ export type MealLogsListResponse = {
     total: number;
   };
 };
+
+export type AnalyticsRange = "today" | "week" | "month" | "year";
+
+export type AnalyticsPoint = {
+  label: string;
+  count: number;
+};
+
+export type AnalyticsResponse = {
+  data: AnalyticsPoint[];
+  meta: {
+    range: AnalyticsRange;
+    granularity: "hour" | "day" | "month";
+    total: number;
+    start: string;
+    end: string;
+  };
+};
+
+export type ReportRow = {
+  id: number;
+  name: string;
+  department: string;
+  meal_date: string;
+  served_at: string;
+  meal_type: MealType;
+};
+
+export type ReportSummary = {
+  total: number;
+  by_type: Record<MealType, number>;
+  top_meal_type: MealType | null;
+  top_department: string | null;
+  unique_employees: number;
+};
+
+export type ReportResponse = {
+  data: ReportRow[];
+  summary: ReportSummary;
+};
+
+export const MEAL_TYPE_LABELS: Record<MealType, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  other: "Other",
+};
+
+export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === "") {
+      continue;
+    }
+
+    search.set(key, String(value));
+  }
+
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}

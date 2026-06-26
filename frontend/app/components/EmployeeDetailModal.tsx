@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { EmployeeRecord } from "../lib/api";
+import {
+  API_BASE_URL,
+  authFetch,
+  EmployeeRecord,
+  parseJsonResponse,
+} from "../lib/api";
 
 type EmployeeDetailModalProps = {
   employee: EmployeeRecord;
@@ -11,6 +16,13 @@ type EmployeeDetailModalProps = {
   onResend: () => void;
   resendLoading: boolean;
   resendError: string | null;
+  onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
+};
+
+type QuotaUpdateResponse = {
+  message?: string;
+  data?: EmployeeRecord;
+  errors?: Record<string, string[]>;
 };
 
 export default function EmployeeDetailModal({
@@ -20,8 +32,17 @@ export default function EmployeeDetailModal({
   onResend,
   resendLoading,
   resendError,
+  onQuotaUpdated,
 }: EmployeeDetailModalProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [quotaInput, setQuotaInput] = useState<string>(String(employee.quota_today ?? 1));
+  const [quotaSaving, setQuotaSaving] = useState(false);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setQuotaInput(String(employee.quota_today ?? 1));
+    setQuotaError(null);
+  }, [employee.id, employee.quota_today]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -42,6 +63,44 @@ export default function EmployeeDetailModal({
       document.body.style.overflow = "";
     };
   }, [isOpen, onClose]);
+
+  async function handleSaveQuota() {
+    const parsed = Number(quotaInput);
+
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 50) {
+      setQuotaError("Quota must be a whole number between 0 and 50.");
+      return;
+    }
+
+    setQuotaSaving(true);
+    setQuotaError(null);
+
+    try {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${employee.id}/quota`, {
+        method: "PATCH",
+        body: JSON.stringify({ quota_today: parsed }),
+      });
+
+      if (response.status >= 500) {
+        setQuotaError("Server error. Unable to update quota.");
+        return;
+      }
+
+      const data = await parseJsonResponse<QuotaUpdateResponse>(response);
+
+      if (response.ok && data?.data) {
+        onQuotaUpdated?.(data.data, data.message ?? "Daily quota updated.");
+        return;
+      }
+
+      const validationError = data?.errors ? Object.values(data.errors).flat()[0] : null;
+      setQuotaError(validationError ?? data?.message ?? "Failed to update quota.");
+    } catch {
+      setQuotaError("Unable to connect to the server.");
+    } finally {
+      setQuotaSaving(false);
+    }
+  }
 
   function handleDownloadQr() {
     const canvas = qrCanvasRef.current;
@@ -125,6 +184,45 @@ export default function EmployeeDetailModal({
             </div>
           </div>
         </dl>
+
+        <section className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Set Daily Quota</h4>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Applies to today only. Resets to 1 automatically tomorrow.
+              </p>
+            </div>
+            <span className="inline-flex min-w-10 justify-center rounded-full bg-indigo-100 px-3 py-1 text-sm font-bold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+              {employee.quota_today ?? 1}
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="number"
+              min={0}
+              max={50}
+              value={quotaInput}
+              onChange={(event) => setQuotaInput(event.target.value)}
+              disabled={quotaSaving}
+              className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:disabled:bg-slate-800 sm:max-w-40"
+              aria-label="Daily quota for today"
+            />
+            <button
+              type="button"
+              onClick={handleSaveQuota}
+              disabled={quotaSaving}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400"
+            >
+              {quotaSaving ? "Saving..." : "Update Quota"}
+            </button>
+          </div>
+
+          {quotaError && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{quotaError}</p>
+          )}
+        </section>
 
         <section className="mt-6 flex flex-col items-center gap-y-4 rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/40">
           <div className="text-center">
