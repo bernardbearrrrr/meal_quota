@@ -1,6 +1,9 @@
 const PRODUCTION_API_BASE_URL = "https://mealquota-production.up.railway.app/api/v1";
 
-export type BarcodeEmailRecipient = {
+export const DRAFT_EMAIL_LINK_CLASS =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500";
+
+export type BarcodeMailtoRecipient = {
   email: string;
   name: string;
   position: string;
@@ -14,7 +17,7 @@ export function getBarcodeImageUrl(uid: string): string {
   return `${baseUrl}/barcodes/${uid}.png`;
 }
 
-export function buildBarcodeDraftMailto({ email, name, position, uid }: BarcodeEmailRecipient): string {
+export function buildBarcodeMailtoHref({ email, name, position, uid }: BarcodeMailtoRecipient): string {
   const barcodeUrl = getBarcodeImageUrl(uid);
   const subject = `[Action Required] Your Meal Quota Barcode - ${name}`;
   const body = [
@@ -33,18 +36,7 @@ export function buildBarcodeDraftMailto({ email, name, position, uid }: BarcodeE
     "Best regards,",
     "IT Administration Team",
     "Meal Quota System",
-  ].join("\r\n");
+  ].join("\n");
 
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-export function openOutlookDraftEmail(recipient: BarcodeEmailRecipient): void {
-  const mailtoLink = buildBarcodeDraftMailto(recipient);
-
-  const link = document.createElement("a");
-  link.href = mailtoLink;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }

@@ -7,7 +7,7 @@ import {
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
-import { openOutlookDraftEmail } from "../lib/barcodeEmail";
+import { buildBarcodeMailtoHref, DRAFT_EMAIL_LINK_CLASS } from "../lib/barcodeMailto";
 import ConfirmDialog from "./ConfirmDialog";
 
 type CreateEmployeeResponse = {
@@ -88,9 +88,6 @@ export default function AddEmployeeForm({
   const inputClassName =
     "mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-900";
 
-  const draftEmailButtonClassName =
-    "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500";
-
   return (
     <div>
       {success && (
@@ -105,20 +102,19 @@ export default function AddEmployeeForm({
             <p>{success}</p>
           </div>
           {createdEmployee && (
-            <button
-              type="button"
-              onClick={() =>
-                openOutlookDraftEmail({
-                  email: createdEmployee.email,
-                  name: createdEmployee.name,
-                  position: createdEmployee.position ?? "",
-                  uid: createdEmployee.uid,
-                })
-              }
-              className={draftEmailButtonClassName}
+            <a
+              href={buildBarcodeMailtoHref({
+                email: createdEmployee.email,
+                name: createdEmployee.name,
+                position: createdEmployee.position ?? "",
+                uid: createdEmployee.uid,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${DRAFT_EMAIL_LINK_CLASS} shrink-0 px-4 py-2`}
             >
               Draft Email
-            </button>
+            </a>
           )}
         </div>
       )}
