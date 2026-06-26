@@ -257,7 +257,11 @@ export default function EmployeeDetailModal({
           </button>
           <button
             type="button"
-            onClick={() => openBarcodeDraftEmail(employee)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openBarcodeDraftEmail(employee);
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

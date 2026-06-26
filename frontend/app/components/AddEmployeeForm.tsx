@@ -44,10 +44,10 @@ export default function AddEmployeeForm() {
 
       if (response.status === 201 && data?.data) {
         setSuccess(data.message ?? "Employee created successfully.");
-        openBarcodeDraftEmail(data.data);
         setName("");
         setDepartment("");
         setEmail("");
+        openBarcodeDraftEmail(data.data);
         return;
       }
 
