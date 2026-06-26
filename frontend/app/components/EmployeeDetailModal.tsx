@@ -6,8 +6,6 @@ import {
   API_BASE_URL,
   authFetch,
   EmployeeRecord,
-  getEmployeeStatus,
-  isEmployeeActive,
   parseJsonResponse,
 } from "../lib/api";
 import { openOutlookDraftEmail } from "../lib/barcodeEmail";
@@ -18,6 +16,7 @@ type EmployeeDetailModalProps = {
   onClose: () => void;
   onQuotaUpdated?: (employee: EmployeeRecord, message: string) => void;
   onStatusUpdated?: (employee: EmployeeRecord, message: string) => void;
+  refreshData: () => Promise<void>;
 };
 
 type QuotaUpdateResponse = {
@@ -37,14 +36,14 @@ export default function EmployeeDetailModal({
   onClose,
   onQuotaUpdated,
   onStatusUpdated,
+  refreshData,
 }: EmployeeDetailModalProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [quotaInput, setQuotaInput] = useState<string>(String(employee.quota_today ?? 1));
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
-  const employeeStatus = getEmployeeStatus(employee);
-  const isInactive = employeeStatus === "inactive";
+  const isInactive = employee.status === "inactive";
 
   useEffect(() => {
     setQuotaInput(String(employee.quota_today ?? 1));
@@ -109,8 +108,8 @@ export default function EmployeeDetailModal({
     }
   }
 
-  async function handleResign() {
-    if (!isEmployeeActive(employee)) {
+  async function handleResign(id: number) {
+    if (employee.status !== "active") {
       return;
     }
 
@@ -125,7 +124,7 @@ export default function EmployeeDetailModal({
     setStatusSaving(true);
 
     try {
-      const response = await authFetch(`${API_BASE_URL}/admin/employees/${employee.id}/status`, {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "inactive" }),
       });
@@ -138,10 +137,11 @@ export default function EmployeeDetailModal({
 
       if (response.ok && data?.data) {
         onStatusUpdated?.(data.data, data.message ?? `${employee.name} has been marked as resigned.`);
+        await refreshData();
         return;
       }
     } catch {
-      // Parent toast handles connection errors via table if needed
+      // Parent handles connection errors via toast
     } finally {
       setStatusSaving(false);
     }
@@ -316,17 +316,25 @@ export default function EmployeeDetailModal({
           </button>
         </section>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
-          {isEmployeeActive(employee) && (
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Employment Status
+          </p>
+          {employee.status === "active" ? (
             <button
               type="button"
-              onClick={handleResign}
+              onClick={() => void handleResign(employee.id)}
               disabled={statusSaving}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+              className="font-semibold text-red-600 hover:text-red-900 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
             >
-              {statusSaving ? "Updating..." : "Mark as Resigned"}
+              {statusSaving ? "Updating..." : "Resign"}
             </button>
+          ) : (
+            <span className="text-gray-400 dark:text-slate-500">Resigned</span>
           )}
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
@@ -334,7 +342,7 @@ export default function EmployeeDetailModal({
           >
             Close
           </button>
-          {isEmployeeActive(employee) && (
+          {employee.status === "active" && (
             <button
               type="button"
               onClick={() =>

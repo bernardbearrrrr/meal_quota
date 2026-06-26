@@ -8,8 +8,6 @@ import {
   authFetch,
   EmployeeRecord,
   EmployeesListResponse,
-  getEmployeeStatus,
-  isEmployeeActive,
   parseJsonResponse,
 } from "../lib/api";
 
@@ -17,6 +15,17 @@ type StatusUpdateResponse = {
   message?: string;
   data?: EmployeeRecord;
 };
+
+function normalizeEmployee(employee: EmployeeRecord): EmployeeRecord {
+  const status =
+    employee.status === "active" || employee.status === "inactive"
+      ? employee.status
+      : employee.is_active === false
+        ? "inactive"
+        : "active";
+
+  return { ...employee, status };
+}
 
 export default function EmployeeTable() {
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
@@ -30,7 +39,7 @@ export default function EmployeeTable() {
   const [resigningId, setResigningId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const loadEmployees = useCallback(async () => {
+  const refreshData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -45,7 +54,11 @@ export default function EmployeeTable() {
       const data = await parseJsonResponse<EmployeesListResponse>(response);
 
       if (data) {
-        setEmployees(data.data);
+        const normalized = data.data.map(normalizeEmployee);
+        setEmployees(normalized);
+        setSelectedEmployee((current) =>
+          current ? normalized.find((item) => item.id === current.id) ?? current : null,
+        );
       }
     } catch {
       setError("Unable to connect to the server.");
@@ -55,8 +68,8 @@ export default function EmployeeTable() {
   }, []);
 
   useEffect(() => {
-    loadEmployees();
-  }, [loadEmployees]);
+    void refreshData();
+  }, [refreshData]);
 
   useEffect(() => {
     if (!toast) {
@@ -92,10 +105,11 @@ export default function EmployeeTable() {
   }
 
   function applyEmployeeUpdate(updated: EmployeeRecord) {
+    const normalized = normalizeEmployee(updated);
     setEmployees((current) =>
-      current.map((employee) => (employee.id === updated.id ? updated : employee)),
+      current.map((employee) => (employee.id === normalized.id ? normalized : employee)),
     );
-    setSelectedEmployee(updated);
+    setSelectedEmployee(normalized);
   }
 
   function handleQuotaUpdated(updated: EmployeeRecord, message: string) {
@@ -104,12 +118,15 @@ export default function EmployeeTable() {
   }
 
   function handleEmployeeCreated(employee: EmployeeRecord) {
-    setEmployees((current) => [employee, ...current].sort((a, b) => a.name.localeCompare(b.name)));
-    setToast(`${employee.name} has been added. Click Draft Email to send their barcode.`);
+    const normalized = normalizeEmployee(employee);
+    setEmployees((current) => [normalized, ...current].sort((a, b) => a.name.localeCompare(b.name)));
+    setToast(`${normalized.name} has been added. Click Draft Email to send their barcode.`);
   }
 
-  async function handleResign(employee: EmployeeRecord) {
-    if (!isEmployeeActive(employee)) {
+  async function handleResign(id: number) {
+    const employee = employees.find((item) => item.id === id);
+
+    if (!employee || employee.status !== "active") {
       return;
     }
 
@@ -121,10 +138,10 @@ export default function EmployeeTable() {
       return;
     }
 
-    setResigningId(employee.id);
+    setResigningId(id);
 
     try {
-      const response = await authFetch(`${API_BASE_URL}/admin/employees/${employee.id}/status`, {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "inactive" }),
       });
@@ -137,8 +154,8 @@ export default function EmployeeTable() {
       const data = await parseJsonResponse<StatusUpdateResponse>(response);
 
       if (response.ok && data?.data) {
-        applyEmployeeUpdate(data.data);
         setToast(data.message ?? `${employee.name} has been marked as resigned.`);
+        await refreshData();
         return;
       }
 
@@ -153,6 +170,7 @@ export default function EmployeeTable() {
   function handleStatusUpdated(updated: EmployeeRecord, message: string) {
     applyEmployeeUpdate(updated);
     setToast(message);
+    void refreshData();
   }
 
   const filterInputClassName =
@@ -192,7 +210,7 @@ export default function EmployeeTable() {
           </button>
           <button
             type="button"
-            onClick={loadEmployees}
+            onClick={refreshData}
             disabled={loading}
             className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
@@ -298,8 +316,7 @@ export default function EmployeeTable() {
                 </tr>
               ) : (
                 filteredEmployees.map((employee) => {
-                  const employeeStatus = getEmployeeStatus(employee);
-                  const isInactive = employeeStatus === "inactive";
+                  const isInactive = employee.status === "inactive";
 
                   return (
                   <tr
@@ -333,13 +350,13 @@ export default function EmployeeTable() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
-                      {isInactive ? (
-                        <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/50 dark:text-red-300">
-                          Resigned
-                        </span>
-                      ) : (
+                      {employee.status === "active" ? (
                         <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
                           Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                          Resigned
                         </span>
                       )}
                     </td>
@@ -347,19 +364,21 @@ export default function EmployeeTable() {
                       {employee.uid}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right sm:px-6">
-                      <div className="flex items-center justify-end gap-2">
-                        {isEmployeeActive(employee) && (
+                      <div className="flex items-center justify-end gap-3">
+                        {employee.status === "active" ? (
                           <button
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              void handleResign(employee);
+                              void handleResign(employee.id);
                             }}
                             disabled={resigningId === employee.id}
-                            className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            className="font-semibold text-red-600 hover:text-red-900 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
                           >
                             {resigningId === employee.id ? "..." : "Resign"}
                           </button>
+                        ) : (
+                          <span className="text-gray-400 dark:text-slate-500">Resigned</span>
                         )}
                         <button
                           type="button"
@@ -395,6 +414,7 @@ export default function EmployeeTable() {
           onClose={closeEmployeeDetail}
           onQuotaUpdated={handleQuotaUpdated}
           onStatusUpdated={handleStatusUpdated}
+          refreshData={refreshData}
         />
       )}
     </div>
