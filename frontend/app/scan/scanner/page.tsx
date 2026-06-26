@@ -164,12 +164,12 @@ function ScannerFrame({ isActive }: { isActive: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
       <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/30" />
-      <div className="relative h-56 w-56 rounded-4xl border border-white/35 shadow-[0_0_0_999px_rgba(2,6,23,0.28)] sm:h-72 sm:w-72">
-        <span className="absolute left-0 top-0 h-12 w-12 rounded-tl-4xl border-l-4 border-t-4 border-emerald-400" />
-        <span className="absolute right-0 top-0 h-12 w-12 rounded-tr-4xl border-r-4 border-t-4 border-emerald-400" />
-        <span className="absolute bottom-0 left-0 h-12 w-12 rounded-bl-4xl border-b-4 border-l-4 border-emerald-400" />
-        <span className="absolute bottom-0 right-0 h-12 w-12 rounded-br-4xl border-b-4 border-r-4 border-emerald-400" />
-        <div className={`absolute left-6 right-6 top-1/2 h-px bg-emerald-300/90 shadow-[0_0_18px_rgba(52,211,153,0.95)] ${isActive ? "animate-pulse" : ""}`} />
+      <div className="relative h-[clamp(280px,76vw,520px)] w-[clamp(280px,76vw,520px)] rounded-4xl border border-white/35 shadow-[0_0_0_999px_rgba(2,6,23,0.28)] sm:h-[clamp(360px,52vw,520px)] sm:w-[clamp(360px,52vw,520px)]">
+        <span className="absolute left-0 top-0 h-16 w-16 rounded-tl-4xl border-l-4 border-t-4 border-emerald-400" />
+        <span className="absolute right-0 top-0 h-16 w-16 rounded-tr-4xl border-r-4 border-t-4 border-emerald-400" />
+        <span className="absolute bottom-0 left-0 h-16 w-16 rounded-bl-4xl border-b-4 border-l-4 border-emerald-400" />
+        <span className="absolute bottom-0 right-0 h-16 w-16 rounded-br-4xl border-b-4 border-r-4 border-emerald-400" />
+        <div className={`absolute left-8 right-8 top-1/2 h-0.5 bg-emerald-300/90 shadow-[0_0_22px_rgba(52,211,153,0.95)] ${isActive ? "animate-pulse" : ""}`} />
       </div>
     </div>
   );
@@ -365,18 +365,18 @@ export default function ScannerPage() {
       );
       const cameraConfig = rearCamera?.id ?? cameras[0]?.id ?? { facingMode: "user" as const };
 
-      const qrBoxSize = Math.min(
-        420,
-        container.clientWidth > 0 ? container.clientWidth - 32 : 420,
-        window.innerWidth - 64,
-        window.innerHeight * 0.45,
+      const minimumQrBoxSize = window.innerWidth < 640 ? 250 : 350;
+      const viewportQrBoxSize = Math.min(window.innerWidth * 0.78, window.innerHeight * 0.62);
+      const containerQrBoxSize = container.clientWidth > 0 ? container.clientWidth * 0.78 : viewportQrBoxSize;
+      const qrBoxSize = Math.round(
+        Math.max(minimumQrBoxSize, Math.min(520, containerQrBoxSize, viewportQrBoxSize)),
       );
 
       await html5QrCode.start(
         cameraConfig,
         {
           fps: 10,
-          qrbox: { width: Math.max(qrBoxSize, 200), height: Math.max(qrBoxSize, 200) },
+          qrbox: { width: qrBoxSize, height: qrBoxSize },
           aspectRatio: 1,
         },
         async (decodedText) => {
@@ -724,8 +724,8 @@ export default function ScannerPage() {
           <div
             ref={qrReaderRef}
             id={SCANNER_ELEMENT_ID}
-            className="block min-h-[420px] w-full [&>div]:border-0! [&>video]:block [&>video]:min-h-[420px] [&>video]:w-full [&>video]:object-cover"
-            style={{ display: "block", minHeight: "420px" }}
+            className="block min-h-[560px] w-full [&>div]:border-0! [&>video]:block [&>video]:min-h-[560px] [&>video]:w-full [&>video]:object-cover sm:min-h-[680px] sm:[&>video]:min-h-[680px]"
+            style={{ display: "block" }}
           />
           {!scanResult && <ScannerFrame isActive={scannerStatus === "streaming" && !isVerifying} />}
           {scanResult && (
