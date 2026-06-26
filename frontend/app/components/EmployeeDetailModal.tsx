@@ -9,6 +9,7 @@ import {
   parseJsonResponse,
 } from "../lib/api";
 import { openOutlookDraftEmail } from "../lib/barcodeEmail";
+import ConfirmDialog from "./ConfirmDialog";
 
 type EmployeeDetailModalProps = {
   employee: EmployeeRecord;
@@ -43,6 +44,7 @@ export default function EmployeeDetailModal({
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
   const isInactive = employee.status === "inactive";
 
   useEffect(() => {
@@ -113,14 +115,6 @@ export default function EmployeeDetailModal({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Mark ${employee.name} as resigned? Their barcode will be disabled immediately.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setStatusSaving(true);
 
     try {
@@ -136,6 +130,7 @@ export default function EmployeeDetailModal({
       const data = await parseJsonResponse<StatusUpdateResponse>(response);
 
       if (response.ok && data?.data) {
+        setShowResignConfirm(false);
         onStatusUpdated?.(data.data, data.message ?? `${employee.name} has been marked as resigned.`);
         await refreshData();
         return;
@@ -316,23 +311,57 @@ export default function EmployeeDetailModal({
           </button>
         </section>
 
-        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Employment Status
-          </p>
-          {employee.status === "active" ? (
-            <button
-              type="button"
-              onClick={() => void handleResign(employee.id)}
-              disabled={statusSaving}
-              className="font-semibold text-red-600 hover:text-red-900 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
-            >
-              {statusSaving ? "Updating..." : "Resign"}
-            </button>
-          ) : (
-            <span className="text-gray-400 dark:text-slate-500">Resigned</span>
-          )}
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Employment Status</h4>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {isInactive
+                  ? "This employee has resigned. Barcode access is permanently disabled."
+                  : "Mark an employee as resigned to disable their meal barcode without deleting records."}
+              </p>
+            </div>
+            {employee.status === "active" ? (
+              <button
+                type="button"
+                onClick={() => setShowResignConfirm(true)}
+                disabled={statusSaving}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V9M12 9v.75m-6 0h12" />
+                </svg>
+                Mark as Resigned
+              </button>
+            ) : (
+              <span className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                Resigned
+              </span>
+            )}
+          </div>
         </div>
+
+        <ConfirmDialog
+          isOpen={showResignConfirm}
+          title="Confirm Employee Resignation"
+          description={
+            <>
+              <p>
+                Are you sure you want to mark <strong>{employee.name}</strong> as resigned?
+              </p>
+              <p className="mt-3">
+                This will immediately disable their meal barcode and prevent further quota access.
+                Employee records will be retained for reporting purposes.
+              </p>
+            </>
+          }
+          confirmLabel="Confirm Resignation"
+          cancelLabel="Keep Active"
+          variant="danger"
+          loading={statusSaving}
+          onConfirm={() => void handleResign(employee.id)}
+          onCancel={() => setShowResignConfirm(false)}
+        />
 
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
           <button

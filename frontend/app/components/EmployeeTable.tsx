@@ -11,11 +11,6 @@ import {
   parseJsonResponse,
 } from "../lib/api";
 
-type StatusUpdateResponse = {
-  message?: string;
-  data?: EmployeeRecord;
-};
-
 function normalizeEmployee(employee: EmployeeRecord): EmployeeRecord {
   const status =
     employee.status === "active" || employee.status === "inactive"
@@ -36,7 +31,6 @@ export default function EmployeeTable() {
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [resigningId, setResigningId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
@@ -121,50 +115,6 @@ export default function EmployeeTable() {
     const normalized = normalizeEmployee(employee);
     setEmployees((current) => [normalized, ...current].sort((a, b) => a.name.localeCompare(b.name)));
     setToast(`${normalized.name} has been added. Click Draft Email to send their barcode.`);
-  }
-
-  async function handleResign(id: number) {
-    const employee = employees.find((item) => item.id === id);
-
-    if (!employee || employee.status !== "active") {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Mark ${employee.name} as resigned? Their barcode will be disabled immediately.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setResigningId(id);
-
-    try {
-      const response = await authFetch(`${API_BASE_URL}/admin/employees/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "inactive" }),
-      });
-
-      if (response.status >= 500) {
-        setToast("Server error. Unable to update employee status.");
-        return;
-      }
-
-      const data = await parseJsonResponse<StatusUpdateResponse>(response);
-
-      if (response.ok && data?.data) {
-        setToast(data.message ?? `${employee.name} has been marked as resigned.`);
-        await refreshData();
-        return;
-      }
-
-      setToast(data?.message ?? "Failed to update employee status.");
-    } catch {
-      setToast("Unable to connect to the server.");
-    } finally {
-      setResigningId(null);
-    }
   }
 
   function handleStatusUpdated(updated: EmployeeRecord, message: string) {
@@ -364,33 +314,16 @@ export default function EmployeeTable() {
                       {employee.uid}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right sm:px-6">
-                      <div className="flex items-center justify-end gap-3">
-                        {employee.status === "active" ? (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleResign(employee.id);
-                            }}
-                            disabled={resigningId === employee.id}
-                            className="font-semibold text-red-600 hover:text-red-900 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
-                          >
-                            {resigningId === employee.id ? "..." : "Resign"}
-                          </button>
-                        ) : (
-                          <span className="text-gray-400 dark:text-slate-500">Resigned</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openEmployeeDetail(employee);
-                          }}
-                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
-                        >
-                          View
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEmployeeDetail(employee);
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                      >
+                        View
+                      </button>
                     </td>
                   </tr>
                   );

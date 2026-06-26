@@ -8,6 +8,7 @@ import {
   parseJsonResponse,
 } from "../lib/api";
 import { openOutlookDraftEmail } from "../lib/barcodeEmail";
+import ConfirmDialog from "./ConfirmDialog";
 
 type CreateEmployeeResponse = {
   message?: string;
@@ -34,9 +35,9 @@ export default function AddEmployeeForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdEmployee, setCreatedEmployee] = useState<EmployeeRecord | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitEmployee() {
     setLoading(true);
     setSuccess(null);
     setError(null);
@@ -75,7 +76,13 @@ export default function AddEmployeeForm({
       setError("Unable to connect to the server. Please check the API URL configuration.");
     } finally {
       setLoading(false);
+      setShowSaveConfirm(false);
     }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setShowSaveConfirm(true);
   }
 
   const inputClassName =
@@ -227,6 +234,41 @@ export default function AddEmployeeForm({
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showSaveConfirm}
+        title="Confirm Employee Registration"
+        description={
+          <>
+            <p>Please review the following details before proceeding:</p>
+            <dl className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-800 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Full Name</dt>
+                <dd className="font-medium text-right">{name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Position</dt>
+                <dd className="font-medium text-right">{position}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Department</dt>
+                <dd className="font-medium text-right">{department}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500 dark:text-slate-400">Email</dt>
+                <dd className="font-medium text-right">{email}</dd>
+              </div>
+            </dl>
+            <p className="mt-4">Is this information complete and correct?</p>
+          </>
+        }
+        confirmLabel="Confirm & Save"
+        cancelLabel="Review Again"
+        variant="primary"
+        loading={loading}
+        onConfirm={() => void submitEmployee()}
+        onCancel={() => setShowSaveConfirm(false)}
+      />
     </div>
   );
 }
