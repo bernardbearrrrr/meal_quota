@@ -47,7 +47,7 @@ export default function AddEmployeeForm() {
         setName("");
         setDepartment("");
         setEmail("");
-        openBarcodeDraftEmail(data.data);
+        openBarcodeDraftEmail(data.data.email, data.data.name, data.data.uid);
         return;
       }
 
