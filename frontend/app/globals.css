@@ -6,7 +6,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Force light, print-friendly styling when html-to-image captures export targets */
+/*
+ * Applied only during PDF capture (class toggled in generateReportPdf.ts).
+ * Forces a print-friendly light palette regardless of active dark mode.
+ */
 .pdf-export-surface {
   background-color: #ffffff !important;
   color: #0f172a !important;
@@ -30,7 +33,36 @@
 .pdf-export-surface .text-slate-500,
 .pdf-export-surface .text-slate-400,
 .pdf-export-surface .dark\:text-white,
+.pdf-export-surface .dark\:text-slate-100,
 .pdf-export-surface .dark\:text-slate-300,
 .pdf-export-surface .dark\:text-slate-400 {
   color: #334155 !important;
+}
+
+.pdf-export-surface.bg-white,
+.pdf-export-surface .bg-white,
+.pdf-export-surface.dark\:bg-slate-800,
+.pdf-export-surface .dark\:bg-slate-800,
+.pdf-export-surface.dark\:bg-slate-900,
+.pdf-export-surface .dark\:bg-slate-900 {
+  background-color: #ffffff !important;
+}
+
+.pdf-export-surface.border-slate-200,
+.pdf-export-surface .border-slate-200,
+.pdf-export-surface.dark\:border-slate-700,
+.pdf-export-surface .dark\:border-slate-700,
+.pdf-export-surface.dark\:border-slate-800,
+.pdf-export-surface .dark\:border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+
+.pdf-export-surface .recharts-cartesian-grid line,
+.pdf-export-surface .recharts-cartesian-axis-tick line {
+  stroke: #cbd5e1 !important;
+}
+
+.pdf-export-surface .recharts-text,
+.pdf-export-surface .recharts-label {
+  fill: #64748b !important;
 }

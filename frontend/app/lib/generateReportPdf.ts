@@ -33,13 +33,24 @@ function loadImageDimensions(dataUrl: string): Promise<{ width: number; height: 
 }
 
 async function captureElement(element: HTMLElement): Promise<CapturedImage> {
+  const root = document.documentElement;
+  const hadDarkClass = root.classList.contains("dark");
+
+  element.classList.add("pdf-export-surface");
+  if (hadDarkClass) {
+    root.classList.remove("dark");
+  }
+
   try {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
     const dataUrl = await toPng(element, {
       backgroundColor: "#ffffff",
       pixelRatio: 2,
       style: {
         padding: `${CAPTURE_PADDING_PX}px`,
         backgroundColor: "#ffffff",
+        color: "#0f172a",
       },
     });
 
@@ -53,6 +64,11 @@ async function captureElement(element: HTMLElement): Promise<CapturedImage> {
   } catch (error) {
     console.error("PDF Generation Error:", error);
     throw error;
+  } finally {
+    element.classList.remove("pdf-export-surface");
+    if (hadDarkClass) {
+      root.classList.add("dark");
+    }
   }
 }
 

@@ -51,9 +51,9 @@ function TableSkeleton() {
 
 function SummaryCardSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800" />
-      <div className="mt-3 h-8 w-16 rounded bg-slate-100 dark:bg-slate-800" />
+    <div className="animate-pulse rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-800">
+      <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-700" />
+      <div className="mt-3 h-8 w-16 rounded bg-slate-100 dark:bg-slate-700" />
     </div>
   );
 }
@@ -74,6 +74,7 @@ export default function ReportsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [pdfCaptureMode, setPdfCaptureMode] = useState(false);
   const [exportToast, setExportToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchControllerRef = useRef<AbortController | null>(null);
@@ -241,7 +242,10 @@ export default function ReportsView() {
     setExportToast(null);
 
     try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      setPdfCaptureMode(true);
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
 
       const dateModeLabel =
         dateMode === "quick"
@@ -273,6 +277,7 @@ export default function ReportsView() {
         message: "Failed to generate PDF. Please try again.",
       });
     } finally {
+      setPdfCaptureMode(false);
       setExporting(false);
     }
   }
@@ -481,19 +486,15 @@ export default function ReportsView() {
         </div>
       )}
 
-      {/* Row 4: Summary & Breakdown Cards — native wrapper for PDF screenshot ref */}
-      <div
-        ref={summaryRef}
-        data-pdf-capture="summary"
-        className="pdf-export-surface space-y-4"
-      >
+      {/* Row 4: Summary & Breakdown Cards */}
+      <div ref={summaryRef} data-pdf-capture="summary" className="space-y-4 transition-colors">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {loading && !report
             ? Array.from({ length: 4 }).map((_, index) => <SummaryCardSkeleton key={index} />)
             : summaryCards.map((card) => (
                 <div
                   key={card.label}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-800"
                 >
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.label}</p>
                   <p className={`mt-2 text-2xl font-bold ${card.accent}`}>{card.value}</p>
@@ -505,10 +506,10 @@ export default function ReportsView() {
           {breakdownTypes.map((type) => (
             <div
               key={type}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-800"
             >
               <MealTypeBadge type={type} />
-              <span className="text-lg font-bold text-slate-900 dark:text-white">
+              <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 {loading ? "—" : (report?.summary.by_type[type] ?? 0)}
               </span>
             </div>
@@ -516,11 +517,11 @@ export default function ReportsView() {
         </div>
       </div>
 
-      {/* Row 5: Visual Analytics — single title inside capture wrapper */}
+      {/* Row 5: Visual Analytics */}
       <div
         ref={chartsRef}
         data-pdf-capture="charts"
-        className="pdf-export-surface space-y-4 rounded-xl bg-white p-4"
+        className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 transition-colors dark:border-slate-700 dark:bg-slate-800"
       >
         <div>
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Visual Analytics</h3>
@@ -535,6 +536,7 @@ export default function ReportsView() {
           departmentData={chartData.departments}
           loading={loading}
           showSectionHeader={false}
+          forceLightTheme={pdfCaptureMode}
         />
       </div>
 
