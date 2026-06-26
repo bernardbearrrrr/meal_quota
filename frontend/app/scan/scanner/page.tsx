@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   API_BASE_URL,
   authFetch,
+  MEAL_TYPE_LABELS,
   parseJsonResponse,
 } from "../../lib/api";
+import type { MealType } from "../../lib/api";
 
-const FEEDBACK_DURATION_MS = 2000;
+const FEEDBACK_DURATION_MS = 6000;
 const SCANNER_ELEMENT_ID = "qr-reader";
 const RESIZE_REINIT_DELAY_MS = 300;
 
@@ -20,10 +22,18 @@ type EmployeeData = {
   department: string;
 };
 
+type QuotaData = {
+  claimed_today?: number;
+  quota_today?: number;
+  remaining?: number;
+};
+
 type VerifyResponse = {
   status?: string;
   message?: string;
   employee?: EmployeeData;
+  meal_type?: MealType;
+  quota?: QuotaData;
 };
 
 type CameraErrorType = "permission" | "not-found" | "generic";
@@ -80,39 +90,176 @@ function waitForVideoStream(container: HTMLElement, timeoutMs = 10000): Promise<
   });
 }
 
+function getCurrentMealType(): MealType {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 11) {
+    return "breakfast";
+  }
+
+  if (hour >= 11 && hour < 16) {
+    return "lunch";
+  }
+
+  if (hour >= 16 && hour < 22) {
+    return "dinner";
+  }
+
+  return "other";
+}
+
+function playScanTone(type: "success" | "error") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+  if (!AudioContextClass) {
+    return;
+  }
+
+  try {
+    const audioContext = new AudioContextClass();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+
+    oscillator.type = type === "success" ? "sine" : "sawtooth";
+    oscillator.frequency.setValueAtTime(type === "success" ? 880 : 140, now);
+    oscillator.frequency.exponentialRampToValueAtTime(type === "success" ? 1320 : 90, now + 0.16);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(type === "success" ? 0.16 : 0.1, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.24);
+    oscillator.onended = () => {
+      void audioContext.close();
+    };
+  } catch {
+    // Browser autoplay policies can block audio feedback; scanner flow should continue.
+  }
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  );
+}
+
+function WarningIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+    </svg>
+  );
+}
+
+function ScannerFrame({ isActive }: { isActive: boolean }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/30" />
+      <div className="relative h-56 w-56 rounded-4xl border border-white/35 shadow-[0_0_0_999px_rgba(2,6,23,0.28)] sm:h-72 sm:w-72">
+        <span className="absolute left-0 top-0 h-12 w-12 rounded-tl-4xl border-l-4 border-t-4 border-emerald-400" />
+        <span className="absolute right-0 top-0 h-12 w-12 rounded-tr-4xl border-r-4 border-t-4 border-emerald-400" />
+        <span className="absolute bottom-0 left-0 h-12 w-12 rounded-bl-4xl border-b-4 border-l-4 border-emerald-400" />
+        <span className="absolute bottom-0 right-0 h-12 w-12 rounded-br-4xl border-b-4 border-r-4 border-emerald-400" />
+        <div className={`absolute left-6 right-6 top-1/2 h-px bg-emerald-300/90 shadow-[0_0_18px_rgba(52,211,153,0.95)] ${isActive ? "animate-pulse" : ""}`} />
+      </div>
+    </div>
+  );
+}
+
 function FeedbackOverlay({
   employeeData,
   errorMessage,
+  mealType,
+  onReset,
+  quotaData,
   scanResult,
 }: {
   employeeData: EmployeeData | null;
   errorMessage: string;
+  mealType: MealType;
+  onReset: () => void;
+  quotaData: QuotaData | null;
   scanResult: Exclude<ScanResult, null>;
 }) {
   const isSuccess = scanResult === "success";
-  const title =
-    scanResult === "success"
-      ? "SUCCESS"
-      : scanResult === "already_claimed"
-        ? "ALREADY REDEEMED"
-        : "ACCESS DENIED";
-  const message =
-    scanResult === "success" && employeeData
-      ? `${employeeData.name} - ${employeeData.department}`
-      : scanResult === "already_claimed"
-        ? errorMessage || "Employee has already claimed their meal today."
-        : errorMessage || "Access denied.";
+  const title = isSuccess ? "Scan Approved" : scanResult === "already_claimed" ? "Quota Alert" : "Scan Failed";
+  const message = isSuccess
+    ? "Quota has been deducted successfully."
+    : errorMessage || "Invalid QR Code.";
+  const remaining = quotaData?.remaining ?? 0;
 
   return (
-    <div
-      className={`absolute inset-0 z-50 flex flex-col items-center justify-center px-6 text-center text-white ${
-        isSuccess ? "bg-green-600" : "bg-red-700"
-      }`}
-    >
-      <p className="text-5xl font-black uppercase tracking-wide sm:text-7xl">{title}</p>
-      <p className="mt-8 max-w-3xl text-2xl font-semibold leading-snug sm:text-4xl">
-        {message}
-      </p>
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <div
+        className={`w-full max-w-2xl rounded-4xl p-6 text-center shadow-2xl ring-1 transition-all duration-300 ease-out animate-scale-in ${
+          isSuccess
+            ? "bg-linear-to-br from-emerald-400 via-emerald-500 to-emerald-700 text-white ring-emerald-200/50"
+            : "border border-rose-200 bg-rose-50 text-rose-950 ring-rose-200 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-50 dark:ring-rose-800"
+        }`}
+      >
+        <div
+          className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full shadow-xl ${
+            isSuccess ? "bg-white/20 text-white ring-8 ring-white/10" : "bg-rose-100 text-rose-600 ring-8 ring-rose-200/70 dark:bg-rose-900 dark:text-rose-200 dark:ring-rose-800/50"
+          }`}
+        >
+          {isSuccess ? (
+            <CheckIcon className="h-14 w-14 animate-bounce" />
+          ) : (
+            <WarningIcon className="h-14 w-14 animate-pulse" />
+          )}
+        </div>
+
+        <p className={`mt-5 text-sm font-bold uppercase tracking-[0.24em] ${isSuccess ? "text-emerald-50" : "text-rose-500 dark:text-rose-300"}`}>
+          {title}
+        </p>
+        <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">
+          {isSuccess ? employeeData?.name ?? "Employee" : message}
+        </h2>
+        {isSuccess && (
+          <>
+            <p className="mt-2 text-lg font-semibold text-emerald-50">
+              {employeeData?.department ?? "Department"}
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-white/15 p-4 text-left ring-1 ring-white/20">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-50">Meal Type</p>
+                <p className="mt-1 text-2xl font-black">{MEAL_TYPE_LABELS[mealType]}</p>
+              </div>
+              <div className="rounded-2xl bg-white/15 p-4 text-left ring-1 ring-white/20">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-50">Remaining Quota Today</p>
+                <p className="mt-1 text-3xl font-black">{remaining}</p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm font-medium text-emerald-50">{message}</p>
+          </>
+        )}
+        {!isSuccess && (
+          <p className="mx-auto mt-4 max-w-xl text-base font-semibold leading-relaxed text-rose-700 dark:text-rose-200">
+            Please verify the employee status, meal window, or remaining daily quota before scanning again.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={onReset}
+          className={`mt-7 w-full rounded-2xl px-6 py-4 text-lg font-black shadow-lg transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-4 sm:w-auto sm:min-w-56 ${
+            isSuccess
+              ? "bg-white text-emerald-700 hover:bg-emerald-50 focus:ring-white/40"
+              : "bg-rose-600 text-white hover:bg-rose-500 focus:ring-rose-300 dark:bg-rose-500 dark:hover:bg-rose-400"
+          }`}
+        >
+          {isSuccess ? "Scan Next" : "Try Again"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -120,6 +267,8 @@ function FeedbackOverlay({
 export default function ScannerPage() {
   const [scanResult, setScanResult] = useState<ScanResult>(null);
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
+  const [mealType, setMealType] = useState<MealType>(getCurrentMealType());
+  const [quotaData, setQuotaData] = useState<QuotaData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -274,6 +423,8 @@ export default function ScannerPage() {
 
     setScanResult(null);
     setEmployeeData(null);
+    setMealType(getCurrentMealType());
+    setQuotaData(null);
     setErrorMessage("");
     setIsVerifying(false);
     isVerifyingRef.current = false;
@@ -314,6 +465,8 @@ export default function ScannerPage() {
 
       setScanResult(null);
       setEmployeeData(null);
+      setMealType(getCurrentMealType());
+      setQuotaData(null);
       setErrorMessage("");
 
       isVerifyingRef.current = true;
@@ -355,6 +508,8 @@ export default function ScannerPage() {
             setScanResult("already_claimed");
           } else if (response.ok && data?.status === "GRANTED" && data.employee) {
             setEmployeeData(data.employee);
+            setMealType(data.meal_type ?? getCurrentMealType());
+            setQuotaData(data.quota ?? null);
             feedbackResult = "success";
             setScanResult("success");
           } else {
@@ -373,6 +528,7 @@ export default function ScannerPage() {
       }
 
       if (feedbackResult) {
+        playScanTone(feedbackResult === "success" ? "success" : "error");
         scheduleScannerReset();
       } else {
         void resetScannerState();
@@ -480,39 +636,57 @@ export default function ScannerPage() {
             : "Idle";
 
   return (
-    <div className="flex flex-1 flex-col bg-slate-950 p-6 lg:p-8">
-      <div className="mx-auto flex w-full flex-1 flex-col gap-4 md:w-3/4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm font-medium text-slate-300">
-            Scanner Status: <span className="text-emerald-400">{scannerStatusLabel}</span>
-          </p>
-          {scannerStatus === "streaming" && !scanResult && !isVerifying && (
-            <span className="rounded-full bg-emerald-600/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-300">
-              Ready to scan
-            </span>
-          )}
+    <div className="flex min-h-full flex-col bg-slate-100 p-4 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">Kantin Scanner</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                QR Meal Verification
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Position the QR code inside the frame. The scanner will validate quota in real time.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                {scannerStatusLabel}
+              </span>
+              {scannerStatus === "streaming" && !scanResult && !isVerifying && (
+                <span className="flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-600/20 dark:text-emerald-300">
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+                  Ready
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {isVerifying && (
-          <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-200">
-            <svg className="h-5 w-5 animate-spin text-emerald-400" viewBox="0 0 24 24" fill="none">
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-800 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+            <svg className="h-6 w-6 animate-spin text-emerald-500" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            <p className="text-sm font-medium">Verifying barcode...</p>
+            <div>
+              <p className="text-sm font-black">Verifying QR Code</p>
+              <p className="text-xs font-medium opacity-80">Checking employee quota and current meal window...</p>
+            </div>
           </div>
         )}
 
         {cameraError && (
-          <div className="rounded-xl border border-red-500/30 bg-red-950/50 px-5 py-4 text-center">
-            <p className="text-sm font-semibold text-red-300">{cameraError}</p>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-5 text-center shadow-sm dark:border-rose-800 dark:bg-rose-950">
+            <WarningIcon className="mx-auto h-10 w-10 text-rose-500 dark:text-rose-300" />
+            <p className="mt-3 text-base font-black text-rose-800 dark:text-rose-100">{cameraError}</p>
             <div className="mt-4 flex flex-col items-center gap-3">
               {cameraErrorType === "permission" && (
                 <button
                   type="button"
                   onClick={() => void requestCameraPermission()}
                   disabled={isRequestingPermission}
-                  className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-800"
+                  className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-800"
                 >
                   {isRequestingPermission ? "Requesting..." : "Request Permission"}
                 </button>
@@ -527,33 +701,47 @@ export default function ScannerPage() {
                     setScannerStatus("idle");
                     void initializeScanner();
                   }}
-                  className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-900"
+                  className="rounded-xl bg-rose-600 px-6 py-3 text-sm font-black text-white shadow-lg transition-colors hover:bg-rose-500 dark:bg-rose-500 dark:hover:bg-rose-400"
                 >
-                  Retry Camera
+                  Back to Scanner
                 </button>
               )}
             </div>
           </div>
         )}
 
-        <div className="relative overflow-hidden rounded-2xl border-2 border-slate-700 bg-black shadow-2xl">
+        <div className="relative flex-1 overflow-hidden rounded-4xl border border-slate-800 bg-black shadow-2xl ring-1 ring-white/10">
+          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-linear-to-b from-black/70 to-transparent px-5 py-4 text-white">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Live Camera</p>
+              <p className="text-sm font-semibold text-white/80">Keep QR code centered inside the frame</p>
+            </div>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur">
+              {MEAL_TYPE_LABELS[mealType]}
+            </span>
+          </div>
+
           <div
             ref={qrReaderRef}
             id={SCANNER_ELEMENT_ID}
-            className="block w-full min-h-[300px] [&>video]:block [&>video]:min-h-[300px] [&>video]:w-full [&>video]:object-cover"
-            style={{ display: "block", minHeight: "300px" }}
+            className="block min-h-[420px] w-full [&>div]:border-0! [&>video]:block [&>video]:min-h-[420px] [&>video]:w-full [&>video]:object-cover"
+            style={{ display: "block", minHeight: "420px" }}
           />
+          {!scanResult && <ScannerFrame isActive={scannerStatus === "streaming" && !isVerifying} />}
           {scanResult && (
             <FeedbackOverlay
               employeeData={employeeData}
               errorMessage={errorMessage}
+              mealType={mealType}
+              onReset={() => void resetScannerState()}
+              quotaData={quotaData}
               scanResult={scanResult}
             />
           )}
         </div>
 
-        <p className="text-center text-sm text-slate-500">
-          Present barcode to camera — next scan resumes automatically after feedback
+        <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">
+          Use the card action to scan again immediately, or wait for the scanner to resume automatically.
         </p>
       </div>
     </div>

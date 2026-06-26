@@ -6,6 +6,22 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 220ms ease-out both;
+}
+
 /*
  * Applied only during PDF capture (class toggled in generateReportPdf.ts).
  * Forces a print-friendly light palette regardless of active dark mode.
