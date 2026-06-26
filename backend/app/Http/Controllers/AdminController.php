@@ -75,6 +75,25 @@ class AdminController extends Controller
         ]);
     }
 
+    public function updateStatus(Request $request, Employee $employee): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
+        ]);
+
+        $employee->status = $validated['status'];
+        $employee->save();
+
+        $message = $validated['status'] === 'inactive'
+            ? "{$employee->name} has been marked as resigned. Barcode access is now disabled."
+            : "{$employee->name} has been reactivated.";
+
+        return response()->json([
+            'message' => $message,
+            'data' => $this->formatEmployee($employee),
+        ]);
+    }
+
     /**
      * Hourly / daily / monthly meal trend for the dashboard chart.
      */
@@ -236,6 +255,7 @@ class AdminController extends Controller
             'department' => $employee->department,
             'position' => $employee->position,
             'email' => $employee->email,
+            'status' => $employee->status ?? ($employee->is_active ? 'active' : 'inactive'),
             'is_active' => $employee->is_active,
             'uid_version' => $employee->uid_version,
             'quota_today' => $employee->quota_today,

@@ -12,11 +12,14 @@ class BarcodeController extends Controller
     {
         $employee = Employee::query()
             ->where('uid', $uid)
-            ->where('is_active', true)
             ->first();
 
         if (! $employee) {
             abort(404, 'Barcode not found.');
+        }
+
+        if ($employee->status !== 'active') {
+            abort(403, 'Barcode access forbidden. Employee is inactive.');
         }
 
         $png = app(QrCodePngGenerator::class)->generate($employee->uid, 300, 2);

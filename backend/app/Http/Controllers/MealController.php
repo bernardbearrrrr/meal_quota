@@ -90,7 +90,7 @@ class MealController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (! $employee || ! $employee->is_active) {
+            if (! $employee || $employee->status !== 'active') {
                 return [
                     'status' => 'DENIED',
                     'http_status' => 422,

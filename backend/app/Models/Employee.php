@@ -16,6 +16,7 @@ class Employee extends Model
         'department',
         'position',
         'email',
+        'status',
         'is_active',
         'uid_version',
         'quota_today',
@@ -35,6 +36,18 @@ class Employee extends Model
         static::creating(function (Employee $employee) {
             if (empty($employee->uid)) {
                 $employee->uid = 'EMP-'.Str::upper(Str::random(16));
+            }
+
+            if (empty($employee->status)) {
+                $employee->status = 'active';
+            }
+
+            $employee->is_active = ($employee->status ?? 'active') === 'active';
+        });
+
+        static::saving(function (Employee $employee) {
+            if ($employee->isDirty('status')) {
+                $employee->is_active = $employee->status === 'active';
             }
         });
     }
