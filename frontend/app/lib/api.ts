@@ -131,6 +131,7 @@ export type EmployeeRecord = {
   id: number;
   name: string;
   department: string;
+  position: string;
   email: string;
   uid: string;
   is_active?: boolean;

@@ -7,6 +7,7 @@ import {
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
+import { openOutlookDraftEmail } from "../lib/barcodeEmail";
 
 type CreateEmployeeResponse = {
   message?: string;
@@ -14,9 +15,20 @@ type CreateEmployeeResponse = {
   errors?: Record<string, string[]>;
 };
 
-export default function AddEmployeeForm() {
+type AddEmployeeFormProps = {
+  onSuccess?: (employee: EmployeeRecord) => void;
+  onCancel?: () => void;
+  showCancel?: boolean;
+};
+
+export default function AddEmployeeForm({
+  onSuccess,
+  onCancel,
+  showCancel = false,
+}: AddEmployeeFormProps) {
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
+  const [position, setPosition] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -33,7 +45,7 @@ export default function AddEmployeeForm() {
     try {
       const response = await authFetch(`${API_BASE_URL}/admin/employees`, {
         method: "POST",
-        body: JSON.stringify({ name, department, email }),
+        body: JSON.stringify({ name, department, position, email }),
       });
 
       if (response.status >= 500) {
@@ -48,7 +60,9 @@ export default function AddEmployeeForm() {
         setCreatedEmployee(data.data);
         setName("");
         setDepartment("");
+        setPosition("");
         setEmail("");
+        onSuccess?.(data.data);
         return;
       }
 
@@ -67,32 +81,8 @@ export default function AddEmployeeForm() {
   const inputClassName =
     "mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-900";
 
-  const draftEmailEmployee = createdEmployee;
-  const draftBarcodeUrl = draftEmailEmployee
-    ? `${process.env.NEXT_PUBLIC_API_URL}/barcodes/${draftEmailEmployee.uid}.png`
-    : "";
-  const draftSubject = draftEmailEmployee
-    ? `[Action Required] Your Meal Quota Barcode - ${draftEmailEmployee.name}`
-    : "";
-  const draftBody = draftEmailEmployee
-    ? [
-        `Dear ${draftEmailEmployee.name},`,
-        "",
-        "We are pleased to inform you that your meal quota has been successfully registered.",
-        "Please find your personal identification barcode below to access your meals.",
-        "",
-        "Barcode Image:",
-        draftBarcodeUrl,
-        "",
-        "Important:",
-        "- Please keep this barcode confidential.",
-        "- Scan this barcode at the designated terminal during your scheduled meal time.",
-        "",
-        "Best regards,",
-        "IT Administration Team",
-        "Meal Quota System",
-      ].join("\n")
-    : "";
+  const draftEmailButtonClassName =
+    "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500";
 
   return (
     <div>
@@ -107,15 +97,21 @@ export default function AddEmployeeForm() {
             </svg>
             <p>{success}</p>
           </div>
-          {draftEmailEmployee && (
-            <a
-              href={`mailto:${draftEmailEmployee.email}?subject=${encodeURIComponent(draftSubject)}&body=${encodeURIComponent(draftBody)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+          {createdEmployee && (
+            <button
+              type="button"
+              onClick={() =>
+                openOutlookDraftEmail({
+                  email: createdEmployee.email,
+                  name: createdEmployee.name,
+                  position: createdEmployee.position ?? "",
+                  uid: createdEmployee.uid,
+                })
+              }
+              className={draftEmailButtonClassName}
             >
               Draft Email
-            </a>
+            </button>
           )}
         </div>
       )}
@@ -132,13 +128,13 @@ export default function AddEmployeeForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="add-employee-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Full Name
           </label>
           <input
-            id="name"
+            id="add-employee-name"
             name="name"
             type="text"
             required
@@ -151,11 +147,28 @@ export default function AddEmployeeForm() {
         </div>
 
         <div>
-          <label htmlFor="department" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="add-employee-position" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Position
+          </label>
+          <input
+            id="add-employee-position"
+            name="position"
+            type="text"
+            required
+            value={position}
+            onChange={(event) => setPosition(event.target.value)}
+            disabled={loading}
+            placeholder="e.g. Software Engineer"
+            className={inputClassName}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="add-employee-department" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Department
           </label>
           <input
-            id="department"
+            id="add-employee-department"
             name="department"
             type="text"
             required
@@ -168,11 +181,11 @@ export default function AddEmployeeForm() {
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="add-employee-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Email Address
           </label>
           <input
-            id="email"
+            id="add-employee-email"
             name="email"
             type="email"
             required
@@ -184,7 +197,17 @@ export default function AddEmployeeForm() {
           />
         </div>
 
-        <div className="flex items-center justify-end border-t border-slate-100 pt-6 dark:border-slate-800">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end dark:border-slate-800">
+          {showCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             disabled={loading}

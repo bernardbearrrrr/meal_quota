@@ -8,6 +8,7 @@ import {
   EmployeeRecord,
   parseJsonResponse,
 } from "../lib/api";
+import { openOutlookDraftEmail } from "../lib/barcodeEmail";
 
 type EmployeeDetailModalProps = {
   employee: EmployeeRecord;
@@ -114,26 +115,6 @@ export default function EmployeeDetailModal({
     return null;
   }
 
-  const barcodeUrl = `${process.env.NEXT_PUBLIC_API_URL}/barcodes/${employee.uid}.png`;
-  const subject = `[Action Required] Your Meal Quota Barcode - ${employee.name}`;
-  const body = [
-    `Dear ${employee.name},`,
-    "",
-    "We are pleased to inform you that your meal quota has been successfully registered.",
-    "Please find your personal identification barcode below to access your meals.",
-    "",
-    "Barcode Image:",
-    barcodeUrl,
-    "",
-    "Important:",
-    "- Please keep this barcode confidential.",
-    "- Scan this barcode at the designated terminal during your scheduled meal time.",
-    "",
-    "Best regards,",
-    "IT Administration Team",
-    "Meal Quota System",
-  ].join("\n");
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
@@ -154,7 +135,9 @@ export default function EmployeeDetailModal({
             <h3 id="employee-detail-title" className="text-xl font-bold text-slate-900 dark:text-white">
               {employee.name}
             </h3>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{employee.department}</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {employee.position ? `${employee.position} · ${employee.department}` : employee.department}
+            </p>
           </div>
           <button
             type="button"
@@ -169,6 +152,14 @@ export default function EmployeeDetailModal({
         </div>
 
         <dl className="space-y-4">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Position</dt>
+            <dd className="mt-1 text-sm text-slate-900 dark:text-white">{employee.position || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Department</dt>
+            <dd className="mt-1 text-sm text-slate-900 dark:text-white">{employee.department}</dd>
+          </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</dt>
             <dd className="mt-1 text-sm text-slate-900 dark:text-white">{employee.email}</dd>
@@ -274,17 +265,23 @@ export default function EmployeeDetailModal({
           >
             Close
           </button>
-          <a
-            href={`mailto:${employee.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() =>
+              openOutlookDraftEmail({
+                email: employee.email,
+                name: employee.name,
+                position: employee.position ?? "",
+                uid: employee.uid,
+              })
+            }
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
             Draft Email
-          </a>
+          </button>
         </div>
       </div>
     </div>

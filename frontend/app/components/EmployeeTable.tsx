@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AddEmployeeModal from "./AddEmployeeModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
 import {
   API_BASE_URL,
@@ -18,6 +19,7 @@ export default function EmployeeTable() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [quotaFilter, setQuotaFilter] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const loadEmployees = useCallback(async () => {
@@ -93,6 +95,11 @@ export default function EmployeeTable() {
     setToast(message);
   }
 
+  function handleEmployeeCreated(employee: EmployeeRecord) {
+    setEmployees((current) => [employee, ...current].sort((a, b) => a.name.localeCompare(b.name)));
+    setToast(`${employee.name} has been added. Click Draft Email to send their barcode.`);
+  }
+
   const filterInputClassName =
     "block w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500";
 
@@ -114,17 +121,29 @@ export default function EmployeeTable() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Manage Employees</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Search, set daily quota, view details, and draft barcode emails.
+            Add employees, manage quotas, and draft barcode emails — all in one place.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadEmployees}
-          disabled={loading}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Employee
+          </button>
+          <button
+            type="button"
+            onClick={loadEmployees}
+            disabled={loading}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -186,6 +205,9 @@ export default function EmployeeTable() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Name
                 </th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:table-cell sm:px-6">
+                  Position
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Department
                 </th>
@@ -206,13 +228,13 @@ export default function EmployeeTable() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading employees...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     {hasActiveFilter ? "No employees match your filters." : "No employees registered yet."}
                   </td>
                 </tr>
@@ -225,6 +247,9 @@ export default function EmployeeTable() {
                   >
                     <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-900 dark:text-white sm:px-6">
                       {employee.name}
+                    </td>
+                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-slate-300 sm:table-cell sm:px-6">
+                      {employee.position || "—"}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-600 dark:text-slate-300 sm:px-6">
                       {employee.department}
@@ -259,6 +284,12 @@ export default function EmployeeTable() {
           </table>
         </div>
       </div>
+
+      <AddEmployeeModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onEmployeeCreated={handleEmployeeCreated}
+      />
 
       {selectedEmployee && (
         <EmployeeDetailModal

@@ -176,16 +176,10 @@ export default function DashboardOverview() {
         <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Quick Actions</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <Link
-            href="/admin/add"
+            href="/admin/employees"
             className="rounded-lg bg-indigo-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
           >
-            Add New Employee
-          </Link>
-          <Link
-            href="/admin/employees"
-            className="rounded-lg border border-indigo-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-slate-800"
-          >
-            View All Employees
+            Manage Employees
           </Link>
           <Link
             href="/admin/reports"
