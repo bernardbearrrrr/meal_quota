@@ -19,13 +19,14 @@ export function getBarcodeImageUrl(uid: string): string {
 
 export function buildBarcodeMailtoHref({ email, name, position, uid }: BarcodeMailtoRecipient): string {
   const barcodeUrl = getBarcodeImageUrl(uid);
-  const subject = `[Action Required] Your Meal Quota Barcode - ${name}`;
+  const subject = `Action Required: Your Meal Quota Barcode — ${name}`;
+  const greeting = position.trim()
+    ? `Dear ${name}, (${position}),`
+    : `Dear ${name},`;
   const body = [
-    `Dear ${name}, ${position},`,
+    greeting,
     "",
-    "Your meal quota is now active. Please find your personal identification barcode below to access your meals.",
-    "",
-    `Please find your identification barcode below or via this link: ${barcodeUrl}`,
+    "Your meal quota is now active. Please find your personal identification barcode via the link below:",
     "",
     barcodeUrl,
     "",
