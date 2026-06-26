@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\BarcodeDistributed;
 use App\Models\Employee;
 use App\Models\MealLog;
+use App\Services\ResendBarcodeMailer;
 use App\Support\QrCode;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -256,7 +255,7 @@ class AdminController extends Controller
             ->margin(2)
             ->generate($employee->uid);
 
-        Mail::to($employee->email)->send(new BarcodeDistributed($employee, $qrCodeImage));
+        app(ResendBarcodeMailer::class)->send($employee, $qrCodeImage);
     }
 
     /**
