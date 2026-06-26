@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { EmployeeRecord } from "../lib/api";
 
 type EmployeeDetailModalProps = {
@@ -20,6 +21,8 @@ export default function EmployeeDetailModal({
   resendLoading,
   resendError,
 }: EmployeeDetailModalProps) {
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -40,6 +43,20 @@ export default function EmployeeDetailModal({
     };
   }, [isOpen, onClose]);
 
+  function handleDownloadQr() {
+    const canvas = qrCanvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    const link = document.createElement("a");
+    const safeName = employee.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    link.download = `${safeName || "employee"}-qr-access.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
+
   if (!isOpen) {
     return null;
   }
@@ -57,7 +74,7 @@ export default function EmployeeDetailModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="employee-detail-title"
-        className="relative z-10 w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className="relative z-10 max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-xl transition-all duration-200 ease-out dark:border-slate-700 dark:bg-slate-900"
       >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
@@ -108,6 +125,34 @@ export default function EmployeeDetailModal({
             </div>
           </div>
         </dl>
+
+        <section className="mt-6 flex flex-col items-center gap-y-4 rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="text-center">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Employee QR Access</h4>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Scan QR to verify employee credentials</p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700">
+            <QRCodeCanvas
+              ref={qrCanvasRef}
+              value={employee.uid}
+              size={160}
+              level="H"
+              includeMargin
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadQr}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 10.5L12 15m0 0l4.5-4.5M12 15V3" />
+            </svg>
+            Download QR
+          </button>
+        </section>
 
         {resendError && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
