@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php83", "php83Packages.imagick", "nodejs_22"]
+nixPkgs = ["php83", "php83Extensions.gd", "nodejs_22"]
 
 [phases.build]
 cmds = [

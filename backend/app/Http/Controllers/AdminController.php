@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Mail\BarcodeDistributed;
 use App\Models\Employee;
 use App\Models\MealLog;
+use App\Support\QrCode;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AdminController extends Controller
 {
@@ -251,6 +251,7 @@ class AdminController extends Controller
     private function sendBarcodeEmail(Employee $employee): void
     {
         $qrCodeImage = QrCode::format('png')
+            ->driver('gd')
             ->size(300)
             ->margin(2)
             ->generate($employee->uid);
