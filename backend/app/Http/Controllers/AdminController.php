@@ -137,7 +137,7 @@ class AdminController extends Controller
             ], 422);
         }
 
-        $expectedHeaders = ['name', 'department', 'position', 'email', 'type', 'employee_id'];
+        $expectedHeaders = ['employee_id', 'name', 'department', 'position', 'email', 'type'];
         $normalizedHeaders = array_map(
             fn ($header) => strtolower(trim((string) $header)),
             $headers,
@@ -147,7 +147,7 @@ class AdminController extends Controller
             fclose($handle);
 
             return response()->json([
-                'message' => 'Invalid CSV headers. Expected: name, department, position, email, type, employee_id.',
+                'message' => 'Invalid CSV headers. Expected: employee_id, name, department, position, email, type.',
             ], 422);
         }
 
@@ -161,7 +161,7 @@ class AdminController extends Controller
                 continue;
             }
 
-            if (count($data) < 4) {
+            if (count($data) < 5) {
                 $parsedRows[] = [
                     'line' => $lineNumber,
                     'error' => 'Row has fewer columns than expected.',
@@ -170,7 +170,7 @@ class AdminController extends Controller
                 continue;
             }
 
-            $type = strtolower(trim((string) ($data[4] ?? '')));
+            $type = strtolower(trim((string) ($data[5] ?? '')));
 
             if ($type === '') {
                 $type = 'associate';
@@ -179,12 +179,12 @@ class AdminController extends Controller
             $parsedRows[] = [
                 'line' => $lineNumber,
                 'data' => [
-                    'name' => trim((string) $data[0]),
-                    'department' => trim((string) $data[1]),
-                    'position' => trim((string) $data[2]),
-                    'email' => trim((string) $data[3]),
+                    'employee_id' => trim((string) ($data[0] ?? '')),
+                    'name' => trim((string) $data[1]),
+                    'department' => trim((string) $data[2]),
+                    'position' => trim((string) $data[3]),
+                    'email' => trim((string) $data[4]),
                     'type' => $type,
-                    'employee_id' => trim((string) ($data[5] ?? '')),
                 ],
             ];
         }

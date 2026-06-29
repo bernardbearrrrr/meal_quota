@@ -4,12 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\MealLog;
+use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MealController extends Controller
 {
+    /**
+     * Current meal windows configured by IT, falling back to defaults.
+     *
+     * @return array<string, array{start: string, end: string}>|null
+     */
+    private function mealWindows(): ?array
+    {
+        $windows = SystemSetting::getValue('meal_windows');
+
+        return is_array($windows) && $windows !== [] ? $windows : null;
+    }
+
     public function indexLogs(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -116,10 +129,13 @@ class MealController extends Controller
                 ];
             }
 
+            $servedAt = now();
+
             $log = MealLog::create([
                 'employee_id' => $employee->id,
                 'meal_date' => today(),
-                'served_at' => now(),
+                'served_at' => $servedAt,
+                'meal_type' => MealLog::resolveMealType($servedAt, $this->mealWindows()),
                 'ip_address' => $request->ip(),
             ]);
 

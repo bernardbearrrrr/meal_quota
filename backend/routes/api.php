@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BarcodeController;
+use App\Http\Controllers\ITController;
 use App\Http\Controllers\MealController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,4 +33,12 @@ Route::middleware(['auth:sanctum', 'role:operator'])->group(function () {
     Route::get('/meals/logs', [MealController::class, 'indexLogs']);
     Route::post('/meals/verify', [MealController::class, 'verify'])
         ->middleware('throttle:60,1');
+});
+
+Route::middleware(['auth:sanctum', 'role:it'])->prefix('it')->group(function () {
+    Route::get('/users', [ITController::class, 'indexUsers']);
+    Route::patch('/users/{id}/reset-password', [ITController::class, 'resetPassword']);
+    Route::get('/settings', [ITController::class, 'getSettings']);
+    Route::patch('/settings', [ITController::class, 'updateSettings']);
+    Route::get('/logs', [ITController::class, 'logs']);
 });
