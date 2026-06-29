@@ -91,6 +91,41 @@ class MealController extends Controller
         ]);
     }
 
+    public function dashboard(Request $request): JsonResponse
+    {
+        $today = today();
+
+        $todayLogs = MealLog::query()->whereDate('meal_date', $today);
+
+        $totalToday = (clone $todayLogs)->count();
+
+        $byTypeRaw = (clone $todayLogs)
+            ->selectRaw('meal_type, COUNT(*) as total')
+            ->groupBy('meal_type')
+            ->pluck('total', 'meal_type');
+
+        $byType = [
+            'breakfast' => (int) ($byTypeRaw['breakfast'] ?? 0),
+            'lunch' => (int) ($byTypeRaw['lunch'] ?? 0),
+            'dinner' => (int) ($byTypeRaw['dinner'] ?? 0),
+            'other' => (int) ($byTypeRaw['other'] ?? 0),
+        ];
+
+        $recent = MealLog::query()
+            ->with('employee:id,name,department,type,employee_id')
+            ->orderByDesc('served_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (MealLog $log) => $this->formatLog($log))
+            ->values();
+
+        return response()->json([
+            'total_today' => $totalToday,
+            'by_type' => $byType,
+            'recent' => $recent,
+        ]);
+    }
+
     public function verify(Request $request): JsonResponse
     {
         $validated = $request->validate([

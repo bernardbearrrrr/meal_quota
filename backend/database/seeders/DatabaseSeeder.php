@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         $users = [
             ['name' => 'IT Super Admin', 'email' => 'it@mealquota.test', 'role' => 'it'],
             ['name' => 'Admin HRD', 'email' => 'hrd@mealquota.test', 'role' => 'admin'],
-            ['name' => 'Kantin Operator', 'email' => 'operator@mealquota.test', 'role' => 'operator'],
+            ['name' => 'Kantin Operator', 'email' => 'kantin@mealquota.test', 'role' => 'kantin'],
         ];
 
         foreach ($users as $user) {

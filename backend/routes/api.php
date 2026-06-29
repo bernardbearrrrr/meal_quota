@@ -29,8 +29,9 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/admin/reports', [AdminController::class, 'report']);
 });
 
-Route::middleware(['auth:sanctum', 'role:operator'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:kantin'])->group(function () {
     Route::get('/meals/logs', [MealController::class, 'indexLogs']);
+    Route::get('/meals/dashboard', [MealController::class, 'dashboard']);
     Route::post('/meals/verify', [MealController::class, 'verify'])
         ->middleware('throttle:60,1');
 });
