@@ -263,19 +263,16 @@ export default function EmployeeTable() {
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
-                  Name
-                </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:table-cell sm:px-6">
                   Employee ID
                 </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:table-cell sm:px-6">
-                  Position
-                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
-                  Department
+                  Employee
+                </th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:table-cell sm:px-6">
+                  Role
                 </th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:table-cell sm:px-6">
-                  Email
+                  Employment Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Quota
@@ -283,24 +280,21 @@ export default function EmployeeTable() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
                   Status
                 </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 lg:table-cell sm:px-6">
-                  UID
-                </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-6">
-                  Actions
+                  Action
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading employees...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     {hasActiveFilter ? "No employees match your filters." : "No employees registered yet."}
                   </td>
                 </tr>
@@ -314,32 +308,39 @@ export default function EmployeeTable() {
                     onClick={() => openEmployeeDetail(employee)}
                     className={`cursor-pointer transition-colors ${
                       isInactive
-                        ? "bg-slate-100/80 text-slate-400 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-500 dark:hover:bg-slate-800/70"
+                        ? "bg-slate-100/80 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800/70"
                         : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
                     }`}
                   >
-                    <td className={`whitespace-nowrap px-4 py-4 text-sm font-medium sm:px-6 ${isInactive ? "text-slate-500 dark:text-slate-500" : "text-slate-900 dark:text-white"}`}>
-                      {employee.name}
+                    <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                      <span className="font-mono text-sm text-slate-600 dark:text-slate-300">
+                        {employee.employee_id || "—"}
+                      </span>
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm md:table-cell sm:px-6">
-                      {employee.type === "intern" ? (
-                        <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
-                          Intern
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
-                          {employee.employee_id || "—"}
-                        </span>
-                      )}
+                    <td className="px-4 py-4 sm:px-6">
+                      <div className={`text-sm font-medium ${isInactive ? "text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white"}`}>
+                        {employee.name}
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        {employee.email}
+                      </div>
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm sm:table-cell sm:px-6">
-                      {employee.position || "—"}
+                    <td className="hidden px-4 py-4 sm:table-cell sm:px-6">
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">
+                        {employee.position || "—"}
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        {employee.department}
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
-                      {employee.department}
-                    </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 text-sm md:table-cell sm:px-6">
-                      {employee.email}
+                    <td className="hidden whitespace-nowrap px-4 py-4 md:table-cell sm:px-6">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                        employee.type === "intern"
+                          ? "bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300"
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+                      }`}>
+                        {employee.type ?? "associate"}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm sm:px-6">
                       <span className={`inline-flex min-w-8 justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -361,19 +362,19 @@ export default function EmployeeTable() {
                         </span>
                       )}
                     </td>
-                    <td className="hidden whitespace-nowrap px-4 py-4 font-mono text-xs lg:table-cell sm:px-6">
-                      {employee.uid}
-                    </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right sm:px-6">
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          openEmployeeDetail(employee);
+                          handleEditEmployee(employee);
                         }}
-                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                        aria-label={`Edit ${employee.name}`}
+                        className="inline-flex items-center justify-center rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
                       >
-                        View
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                        </svg>
                       </button>
                     </td>
                   </tr>

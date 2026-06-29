@@ -4,7 +4,7 @@ export const API_BASE_URL = configuredApiUrl?.replace(/\/+$/, "") ?? "";
 export const TOKEN_KEY = "meal_token";
 export const ROLE_KEY = "meal_role";
 
-export type UserRole = "admin" | "operator";
+export type UserRole = "admin" | "operator" | "it";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") {
@@ -25,7 +25,7 @@ export function getRole(): UserRole | null {
 
   const role = localStorage.getItem(ROLE_KEY);
 
-  if (role === "admin" || role === "operator") {
+  if (role === "admin" || role === "operator" || role === "it") {
     return role;
   }
 
@@ -98,6 +98,32 @@ export function handleUnauthorized(response: Response): boolean {
   return false;
 }
 
+export async function handleMaintenance(response: Response): Promise<boolean> {
+  if (response.status !== 503 || typeof window === "undefined") {
+    return false;
+  }
+
+  // IT must stay in to disable maintenance mode.
+  if (getRole() === "it") {
+    return false;
+  }
+
+  try {
+    const data = await response.clone().json();
+
+    if (data?.message === "MAINTENANCE") {
+      if (window.location.pathname !== "/maintenance") {
+        window.location.href = "/maintenance";
+      }
+      return true;
+    }
+  } catch {
+    // Non-JSON 503 — let the caller handle it normally.
+  }
+
+  return false;
+}
+
 export async function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, {
     ...init,
@@ -108,6 +134,7 @@ export async function authFetch(url: string, init: RequestInit = {}): Promise<Re
   });
 
   handleUnauthorized(response);
+  await handleMaintenance(response);
 
   return response;
 }
@@ -315,6 +342,61 @@ export const MEAL_TYPE_LABELS: Record<MealType, string> = {
   dinner: "Dinner",
   other: "Other",
 };
+
+export type ITUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+};
+
+export type MealWindow = {
+  start: string;
+  end: string;
+};
+
+export type MealWindows = {
+  breakfast: MealWindow;
+  lunch: MealWindow;
+  dinner: MealWindow;
+};
+
+export type SystemSettings = {
+  maintenance_mode: boolean;
+  meal_windows: MealWindows;
+};
+
+export type LogEntry = {
+  timestamp: string;
+  level: string;
+  message: string;
+};
+
+export async function getITUsers(): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/it/users`);
+}
+
+export async function resetUserPassword(id: number, password?: string): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/it/users/${id}/reset-password`, {
+    method: "PATCH",
+    body: JSON.stringify(password ? { password } : {}),
+  });
+}
+
+export async function getSystemSettings(): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/it/settings`);
+}
+
+export async function updateSystemSettings(settings: SystemSettings): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/it/settings`, {
+    method: "PATCH",
+    body: JSON.stringify(settings),
+  });
+}
+
+export async function getSystemLogs(): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/it/logs`);
+}
 
 export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
   const search = new URLSearchParams();

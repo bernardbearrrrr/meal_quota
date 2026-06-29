@@ -21,10 +21,12 @@ export default function LoginPage() {
 
       const data = await parseJsonResponse<LoginResponse>(response);
 
-      if (response.ok && data?.token && (data.role === "admin" || data.role === "operator")) {
+      if (response.ok && data?.token && (data.role === "admin" || data.role === "operator" || data.role === "it")) {
         setToken(data.token);
         setRole(data.role);
-        router.push(data.role === "admin" ? "/admin" : "/scan/scanner");
+        router.push(
+          data.role === "admin" ? "/admin" : data.role === "it" ? "/it/users" : "/scan/scanner",
+        );
         return;
       }
 
