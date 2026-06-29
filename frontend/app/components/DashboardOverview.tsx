@@ -32,34 +32,37 @@ export default function DashboardOverview() {
   const [chartLoading, setChartLoading] = useState(true);
   const [chartError, setChartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const response = await authFetch(`${API_BASE_URL}/admin/employees`);
-
-        if (response.status >= 500) {
-          setStatsError("Unable to load dashboard statistics.");
-          return;
-        }
-
-        const data = await parseJsonResponse<EmployeesListResponse>(response);
-
-        if (data) {
-          setTotal(data.meta.total);
-          setActiveCount(data.data.filter((employee) => isEmployeeActive(employee)).length);
-        }
-      } catch {
-        setStatsError("Unable to connect to the server.");
-      } finally {
-        setStatsLoading(false);
-      }
+  const loadStats = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setStatsLoading(true);
     }
 
-    loadStats();
+    try {
+      const response = await authFetch(`${API_BASE_URL}/admin/employees`);
+
+      if (response.status >= 500) {
+        setStatsError("Unable to load dashboard statistics.");
+        return;
+      }
+
+      const data = await parseJsonResponse<EmployeesListResponse>(response);
+
+      if (data) {
+        setTotal(data.meta.total);
+        setActiveCount(data.data.filter((employee) => isEmployeeActive(employee)).length);
+        setStatsError(null);
+      }
+    } catch {
+      setStatsError("Unable to connect to the server.");
+    } finally {
+      setStatsLoading(false);
+    }
   }, []);
 
-  const loadAnalytics = useCallback(async () => {
-    setChartLoading(true);
+  const loadAnalytics = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setChartLoading(true);
+    }
     setChartError(null);
 
     try {
@@ -83,8 +86,22 @@ export default function DashboardOverview() {
   }, [range]);
 
   useEffect(() => {
-    loadAnalytics();
+    void loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    void loadAnalytics();
   }, [loadAnalytics]);
+
+  // Live data: silently refresh scorecards and chart every 3 seconds.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadStats({ silent: true });
+      void loadAnalytics({ silent: true });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [loadStats, loadAnalytics]);
 
   return (
     <div className="space-y-8">

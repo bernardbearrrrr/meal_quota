@@ -21,11 +21,11 @@ export default function LoginPage() {
 
       const data = await parseJsonResponse<LoginResponse>(response);
 
-      if (response.ok && data?.token && (data.role === "admin" || data.role === "operator" || data.role === "it")) {
+      if (response.ok && data?.token && (data.role === "admin" || data.role === "kantin" || data.role === "it")) {
         setToken(data.token);
         setRole(data.role);
         router.push(
-          data.role === "admin" ? "/admin" : data.role === "it" ? "/it/users" : "/scan/scanner",
+          data.role === "admin" ? "/admin" : data.role === "it" ? "/it/users" : "/kantin/dashboard",
         );
         return;
       }
@@ -138,7 +138,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          HRD admins are routed to the dashboard. Cafeteria operators are routed to the scanner.
+          HRD admins are routed to the dashboard. Kantin operators are routed to their dashboard.
         </p>
       </div>
     </div>

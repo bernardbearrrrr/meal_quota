@@ -2,13 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { logout } from "../lib/api";
+import Spinner from "./Spinner";
 import ThemeToggle from "./ThemeToggle";
 
 const navItems = [
-  { href: "/scan/logs", label: "Meal Logs", icon: LogsIcon, exact: false },
-  { href: "/scan/scanner", label: "Scanner", icon: ScannerIcon, exact: false },
+  { href: "/kantin/dashboard", label: "Dashboard", icon: DashboardIcon, exact: false },
+  { href: "/kantin/scanner", label: "Scanner", icon: ScannerIcon, exact: false },
+  { href: "/kantin/logs", label: "Meal Logs", icon: LogsIcon, exact: false },
 ];
+
+function DashboardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+    </svg>
+  );
+}
 
 function LogsIcon({ className }: { className?: string }) {
   return (
@@ -64,7 +75,7 @@ function LogoMark({ className = "" }: { className?: string }) {
   );
 }
 
-type OperatorSidebarProps = {
+type KantinSidebarProps = {
   isCollapsed?: boolean;
   isMobile?: boolean;
   isMobileOpen?: boolean;
@@ -72,17 +83,23 @@ type OperatorSidebarProps = {
   onCloseMobile?: () => void;
 };
 
-export default function OperatorSidebar({
+export default function KantinSidebar({
   isCollapsed = false,
   isMobile = false,
   isMobileOpen = false,
   onToggleCollapse,
   onCloseMobile,
-}: OperatorSidebarProps) {
+}: KantinSidebarProps) {
   const pathname = usePathname();
   const showLabels = isMobile || !isCollapsed;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
     void logout();
   }
 
@@ -95,7 +112,7 @@ export default function OperatorSidebar({
       }`;
 
   return (
-    <aside className={asideClassName} aria-label="Operator sidebar" aria-hidden={isMobile && !isMobileOpen}>
+    <aside className={asideClassName} aria-label="Kantin sidebar" aria-hidden={isMobile && !isMobileOpen}>
       <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800 ${showLabels ? "gap-3 px-6" : "justify-center px-3"}`}>
         <LogoMark />
         {showLabels && (
@@ -161,13 +178,14 @@ export default function OperatorSidebar({
         <button
           type="button"
           onClick={handleLogout}
+          disabled={isLoggingOut}
           title={showLabels ? undefined : "Logout"}
-          className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 ${
+          className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 ${
             showLabels ? "gap-3 px-3" : "justify-center px-0"
           }`}
         >
-          <LogoutIcon className="h-6 w-6 shrink-0" />
-          {showLabels && <span className="truncate">Logout</span>}
+          {isLoggingOut ? <Spinner className="h-6 w-6 shrink-0" /> : <LogoutIcon className="h-6 w-6 shrink-0" />}
+          {showLabels && <span className="truncate">{isLoggingOut ? "Signing out..." : "Logout"}</span>}
         </button>
       </div>
     </aside>

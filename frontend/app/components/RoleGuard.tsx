@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRole, getToken } from "../lib/api";
 
-type Role = "admin" | "operator" | "it";
+type Role = "admin" | "kantin" | "it";
 
 type RoleGuardProps = {
   allowedRole: Role;
@@ -27,8 +27,8 @@ export default function RoleGuard({ allowedRole, children }: RoleGuardProps) {
     if (role !== allowedRole) {
       if (role === "admin") {
         router.replace("/admin");
-      } else if (role === "operator") {
-        router.replace("/scan/scanner");
+      } else if (role === "kantin") {
+        router.replace("/kantin/dashboard");
       } else if (role === "it") {
         router.replace("/it/users");
       } else {

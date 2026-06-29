@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { logout } from "../lib/api";
+import Spinner from "./Spinner";
 import ThemeToggle from "./ThemeToggle";
 
 const navItems = [
@@ -100,8 +102,14 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const showLabels = isMobile || !isCollapsed;
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
     void logout();
   }
 
@@ -180,13 +188,14 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={handleLogout}
+          disabled={isLoggingOut}
           title={showLabels ? undefined : "Logout"}
-          className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 ${
+          className={`flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 ${
             showLabels ? "gap-3 px-3" : "justify-center px-0"
           }`}
         >
-          <LogoutIcon className="h-6 w-6 shrink-0" />
-          {showLabels && <span className="truncate">Logout</span>}
+          {isLoggingOut ? <Spinner className="h-6 w-6 shrink-0" /> : <LogoutIcon className="h-6 w-6 shrink-0" />}
+          {showLabels && <span className="truncate">{isLoggingOut ? "Signing out..." : "Logout"}</span>}
         </button>
       </div>
     </aside>

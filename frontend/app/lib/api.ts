@@ -4,7 +4,7 @@ export const API_BASE_URL = configuredApiUrl?.replace(/\/+$/, "") ?? "";
 export const TOKEN_KEY = "meal_token";
 export const ROLE_KEY = "meal_role";
 
-export type UserRole = "admin" | "operator" | "it";
+export type UserRole = "admin" | "kantin" | "it";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") {
@@ -25,7 +25,7 @@ export function getRole(): UserRole | null {
 
   const role = localStorage.getItem(ROLE_KEY);
 
-  if (role === "admin" || role === "operator" || role === "it") {
+  if (role === "admin" || role === "kantin" || role === "it") {
     return role;
   }
 
@@ -295,6 +295,16 @@ export type MealLogsListResponse = {
     total: number;
   };
 };
+
+export type MealDashboardResponse = {
+  total_today: number;
+  by_type: Record<MealType, number>;
+  recent: MealLogRecord[];
+};
+
+export async function getMealDashboard(): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/meals/dashboard`);
+}
 
 export type AnalyticsRange = "today" | "week" | "month" | "year";
 

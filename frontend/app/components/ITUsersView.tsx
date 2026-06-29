@@ -11,7 +11,7 @@ type UsersResponse = {
 const ROLE_BADGE: Record<string, string> = {
   it: "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
   admin: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300",
-  operator: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  kantin: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
 };
 
 export default function ITUsersView() {

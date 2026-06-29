@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
-import OperatorSidebar from "./OperatorSidebar";
+import KantinSidebar from "./KantinSidebar";
 import RoleGuard from "./RoleGuard";
 
 function MobileLogo() {
@@ -29,14 +29,14 @@ function HamburgerIcon({ className }: { className?: string }) {
   );
 }
 
-export default function OperatorLayout({ children }: { children: ReactNode }) {
+export default function KantinLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const pageTitle = pathname.startsWith("/scan/logs")
+  const pageTitle = pathname.startsWith("/kantin/logs")
     ? "Meal Logs"
-    : pathname.startsWith("/scan/scanner")
+    : pathname.startsWith("/kantin/scanner")
       ? "Scanner"
       : "Kantin Dashboard";
 
@@ -53,10 +53,10 @@ export default function OperatorLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <RoleGuard allowedRole="operator">
+    <RoleGuard allowedRole="kantin">
       <div className="flex h-screen w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
-        <OperatorSidebar isCollapsed={isCollapsed} onToggleCollapse={toggleCollapsed} />
-        <OperatorSidebar isMobile isMobileOpen={isMobileOpen} onCloseMobile={closeMobileMenu} />
+        <KantinSidebar isCollapsed={isCollapsed} onToggleCollapse={toggleCollapsed} />
+        <KantinSidebar isMobile isMobileOpen={isMobileOpen} onCloseMobile={closeMobileMenu} />
 
         <div
           aria-hidden="true"
@@ -72,7 +72,7 @@ export default function OperatorLayout({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={openMobileMenu}
-              aria-label="Open operator menu"
+              aria-label="Open kantin menu"
               aria-expanded={isMobileOpen}
               className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >

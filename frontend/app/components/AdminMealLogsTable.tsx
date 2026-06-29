@@ -50,8 +50,10 @@ export default function AdminMealLogsTable() {
     setCurrentPage(1);
   }, [debouncedSearch, mealType, startDate, endDate, showAllTime]);
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
+  const loadLogs = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -85,7 +87,16 @@ export default function AdminMealLogsTable() {
   }, [currentPage, debouncedSearch, mealType, showAllTime, startDate, endDate]);
 
   useEffect(() => {
-    loadLogs();
+    void loadLogs();
+  }, [loadLogs]);
+
+  // Live data: silently refresh the table every 3 seconds.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void loadLogs({ silent: true });
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [loadLogs]);
 
   const inputClassName =
