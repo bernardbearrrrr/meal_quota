@@ -30,11 +30,13 @@ class MealController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
             'meal_type' => ['nullable', 'string', 'in:breakfast,lunch,dinner,other'],
+            'meal_types' => ['nullable', 'array'],
+            'meal_types.*' => ['string', 'in:breakfast,lunch,dinner,other'],
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'show_all' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
         ]);
 
         $showAll = $request->boolean('show_all');
@@ -67,6 +69,10 @@ class MealController extends Controller
             $query->mealType($validated['meal_type']);
         }
 
+        if (! empty($validated['meal_types'])) {
+            $query->whereIn('meal_type', $validated['meal_types']);
+        }
+
         if (! $showAll) {
             if (! empty($validated['start_date'])) {
                 $query->whereDate('meal_date', '>=', $validated['start_date']);
@@ -77,7 +83,7 @@ class MealController extends Controller
             }
         }
 
-        $perPage = $validated['per_page'] ?? 20;
+        $perPage = (int) ($validated['per_page'] ?? 10);
         $paginator = $query->paginate($perPage);
 
         return response()->json([
@@ -124,6 +130,34 @@ class MealController extends Controller
             'by_type' => $byType,
             'recent' => $recent,
         ]);
+    }
+
+    public function destroyLog(int $id): JsonResponse
+    {
+        $result = DB::transaction(function () use ($id) {
+            $log = MealLog::query()->lockForUpdate()->find($id);
+
+            if (! $log) {
+                return [
+                    'http_status' => 404,
+                    'message' => 'Meal log not found.',
+                ];
+            }
+
+            // Quota validation is based on counting today's logs, so deleting the
+            // record alone restores the employee's available quota for the day.
+            $log->delete();
+
+            return [
+                'http_status' => 200,
+                'message' => 'Meal record voided successfully. Employee quota has been restored.',
+            ];
+        });
+
+        $httpStatus = $result['http_status'];
+        unset($result['http_status']);
+
+        return response()->json($result, $httpStatus);
     }
 
     public function verify(Request $request): JsonResponse

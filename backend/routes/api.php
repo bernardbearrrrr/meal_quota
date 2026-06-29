@@ -25,6 +25,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::patch('/admin/employees/{employee}/reset-barcode', [AdminController::class, 'resetBarcode']);
 
     Route::get('/admin/meal-logs', [MealController::class, 'indexLogs']);
+    Route::delete('/admin/meals/logs/{id}', [MealController::class, 'destroyLog'])
+        ->where('id', '[0-9]+');
     Route::get('/admin/analytics', [AdminController::class, 'analytics']);
     Route::get('/admin/reports', [AdminController::class, 'report']);
 });

@@ -19,6 +19,8 @@ class AdminController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
             'quota' => ['nullable', 'integer', 'min:0', 'max:50'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
         ]);
 
         $query = Employee::query()->orderBy('name');
@@ -33,6 +35,25 @@ class AdminController extends Controller
 
         if (isset($validated['quota'])) {
             $query->where('quota_today', $validated['quota']);
+        }
+
+        // Paginate only when a page size is requested; otherwise return the full
+        // list (used by the dashboard scorecards which count all employees).
+        if (! empty($validated['per_page'])) {
+            $perPage = (int) $validated['per_page'];
+            $paginator = $query->paginate($perPage);
+
+            return response()->json([
+                'data' => collect($paginator->items())
+                    ->map(fn (Employee $employee) => $this->formatEmployee($employee))
+                    ->values(),
+                'meta' => [
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                ],
+            ]);
         }
 
         $employees = $query->get();
