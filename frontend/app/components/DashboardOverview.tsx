@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 import MealTrendChart from "./MealTrendChart";
 import {
   AnalyticsRange,
@@ -94,14 +95,15 @@ export default function DashboardOverview() {
   }, [loadAnalytics]);
 
   // Live data: silently refresh scorecards and chart every 3 seconds.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      void loadStats({ silent: true });
-      void loadAnalytics({ silent: true });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [loadStats, loadAnalytics]);
+  useAutoRefresh(
+    useCallback(
+      ({ silent }) => {
+        void loadStats({ silent });
+        void loadAnalytics({ silent });
+      },
+      [loadStats, loadAnalytics],
+    ),
+  );
 
   return (
     <div className="space-y-8">

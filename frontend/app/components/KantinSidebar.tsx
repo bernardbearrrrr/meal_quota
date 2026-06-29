@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "../lib/api";
+import ConfirmDialog from "./ConfirmDialog";
+import LiveClock from "./LiveClock";
 import Spinner from "./Spinner";
 import ThemeToggle from "./ThemeToggle";
 
@@ -93,12 +95,17 @@ export default function KantinSidebar({
   const pathname = usePathname();
   const showLabels = isMobile || !isCollapsed;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   function handleLogout() {
     if (isLoggingOut) {
       return;
     }
 
+    setShowLogoutConfirm(true);
+  }
+
+  function confirmLogout() {
     setIsLoggingOut(true);
     void logout();
   }
@@ -112,6 +119,7 @@ export default function KantinSidebar({
       }`;
 
   return (
+    <>
     <aside className={asideClassName} aria-label="Kantin sidebar" aria-hidden={isMobile && !isMobileOpen}>
       <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800 ${showLabels ? "gap-3 px-6" : "justify-center px-3"}`}>
         <LogoMark />
@@ -132,6 +140,12 @@ export default function KantinSidebar({
           </button>
         )}
       </div>
+
+      {showLabels && (
+        <div className="shrink-0 border-b border-slate-200 px-6 py-2.5 dark:border-slate-800">
+          <LiveClock />
+        </div>
+      )}
 
       <nav className={`flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain ${isCollapsed && !isMobile ? "p-3" : "p-4"}`}>
         {navItems.map(({ href, label, icon: Icon, exact }) => {
@@ -189,5 +203,18 @@ export default function KantinSidebar({
         </button>
       </div>
     </aside>
+
+    <ConfirmDialog
+      isOpen={showLogoutConfirm}
+      title="Confirm Logout"
+      description={<p>Are you sure you want to log out?</p>}
+      confirmLabel="Yes, Log Out"
+      cancelLabel="Cancel"
+      variant="danger"
+      loading={isLoggingOut}
+      onConfirm={confirmLogout}
+      onCancel={() => setShowLogoutConfirm(false)}
+    />
+    </>
   );
 }

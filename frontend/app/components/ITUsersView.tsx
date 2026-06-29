@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getITUsers, ITUser, parseJsonResponse, resetUserPassword } from "../lib/api";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 import ConfirmDialog from "./ConfirmDialog";
 
 type UsersResponse = {
@@ -22,8 +23,10 @@ export default function ITUsersView() {
   const [resetTarget, setResetTarget] = useState<ITUser | null>(null);
   const [resetting, setResetting] = useState(false);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
+  const loadUsers = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -49,6 +52,9 @@ export default function ITUsersView() {
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
+
+  // Live data: silently refresh the user list every 3 seconds.
+  useAutoRefresh(loadUsers);
 
   useEffect(() => {
     if (!toast) {

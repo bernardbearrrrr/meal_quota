@@ -176,6 +176,15 @@ function MinimizeIcon({ className }: { className?: string }) {
   );
 }
 
+function SwitchCameraIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 13.5a2.25 2.25 0 0 1 3.84-1.59m.66 1.59a2.25 2.25 0 0 1-3.84 1.59m0 0v1.5m0-1.5h1.5m1.84-1.59v-1.5m0 1.5h-1.5" />
+    </svg>
+  );
+}
+
 function ScannerFrame({ isActive }: { isActive: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
@@ -293,7 +302,13 @@ export default function ScannerPage() {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState<ScannerStatus>("idle");
+  const [cameraCount, setCameraCount] = useState(0);
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
 
+  const camerasRef = useRef<import("html5-qrcode").CameraDevice[]>([]);
+  const cameraIndexRef = useRef(0);
+  const cameraIndexInitializedRef = useRef(false);
+  const facingModeRef = useRef<"environment" | "user">("environment");
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const qrReaderRef = useRef<HTMLDivElement>(null);
   const html5QrCodeRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
@@ -378,10 +393,22 @@ export default function ScannerPage() {
       html5QrCodeRef.current = html5QrCode;
 
       const cameras = await Html5Qrcode.getCameras();
-      const rearCamera = cameras.find((camera) =>
-        camera.label.toLowerCase().includes("back"),
-      );
-      const cameraConfig = rearCamera?.id ?? cameras[0]?.id ?? { facingMode: "user" as const };
+      camerasRef.current = cameras;
+      setCameraCount(cameras.length);
+
+      // Default to the rear camera the first time, then respect manual switches.
+      if (!cameraIndexInitializedRef.current && cameras.length > 0) {
+        const rearIndex = cameras.findIndex((camera) =>
+          camera.label.toLowerCase().includes("back"),
+        );
+        cameraIndexRef.current = rearIndex >= 0 ? rearIndex : 0;
+        cameraIndexInitializedRef.current = true;
+      }
+
+      const cameraConfig =
+        cameras.length > 0
+          ? cameras[cameraIndexRef.current % cameras.length].id
+          : { facingMode: facingModeRef.current };
 
       const minimumQrBoxSize = window.innerWidth < 640 ? 250 : 350;
       const viewportQrBoxSize = Math.min(window.innerWidth * 0.78, window.innerHeight * 0.62);
@@ -489,6 +516,32 @@ export default function ScannerPage() {
       setErrorMessage("Fullscreen mode is not available in this browser.");
     }
   }, []);
+
+  const switchCamera = useCallback(async () => {
+    if (isVerifyingRef.current || initializingRef.current || isSwitchingCamera) {
+      return;
+    }
+
+    const cameras = camerasRef.current;
+
+    if (cameras.length > 1) {
+      cameraIndexRef.current = (cameraIndexRef.current + 1) % cameras.length;
+    } else {
+      // Single (or unlabeled) camera: flip the requested facing mode instead.
+      facingModeRef.current = facingModeRef.current === "environment" ? "user" : "environment";
+    }
+
+    setIsSwitchingCamera(true);
+    processingRef.current = false;
+
+    try {
+      await initializeScanner();
+    } finally {
+      if (mountedRef.current) {
+        setIsSwitchingCamera(false);
+      }
+    }
+  }, [initializeScanner, isSwitchingCamera]);
 
   const handleScan = useCallback(
     async (decodedText: string) => {
@@ -782,6 +835,24 @@ export default function ScannerPage() {
               <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur">
                 {MEAL_TYPE_LABELS[mealType]}
               </span>
+              {cameraCount > 1 && !scanResult && !isVerifying && (
+                <button
+                  type="button"
+                  onClick={() => void switchCamera()}
+                  disabled={isSwitchingCamera}
+                  aria-label="Switch camera"
+                  className="rounded-full bg-black/40 p-2 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSwitchingCamera ? (
+                    <svg className="h-5 w-5 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <SwitchCameraIcon className="h-5 w-5 shrink-0" />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => void toggleFullscreen()}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 import MealTypeBadge from "./MealTypeBadge";
 import {
   authFetch,
@@ -64,13 +65,7 @@ export default function KantinDashboard() {
   }, [loadDashboard]);
 
   // Live data: silently refresh scorecard, chart, and feed every 3 seconds.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      void loadDashboard({ silent: true });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [loadDashboard]);
+  useAutoRefresh(loadDashboard);
 
   const chartData = MEAL_TYPE_ORDER.map((type) => ({
     type,

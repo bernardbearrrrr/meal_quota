@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSystemLogs, LogEntry, parseJsonResponse } from "../lib/api";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 
 type LogsResponse = {
   data: LogEntry[];
@@ -43,8 +44,10 @@ export default function ITLogsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
+  const loadLogs = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -70,6 +73,9 @@ export default function ITLogsView() {
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
+
+  // Live data: silently refresh the error logs every 3 seconds.
+  useAutoRefresh(loadLogs);
 
   return (
     <div className="space-y-6">

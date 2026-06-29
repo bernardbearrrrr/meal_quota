@@ -225,7 +225,7 @@ export default function ReportsView() {
     if (!report || report.data.length === 0 || !effectiveDates) {
       setExportToast({
         type: "error",
-        message: "No data available to export for the current filters.",
+        message: "Tidak ada data laporan untuk diekspor pada periode ini.",
       });
       return;
     }
@@ -357,7 +357,7 @@ export default function ReportsView() {
         <button
           type="button"
           onClick={handleExportPdf}
-          disabled={exporting || loading || !report || report.data.length === 0}
+          disabled={exporting || loading}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-400"
         >
           {exporting ? (

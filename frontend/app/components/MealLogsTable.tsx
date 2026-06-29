@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
+import MealTypeBadge from "./MealTypeBadge";
+import MealTypeFilter from "./MealTypeFilter";
+import TablePagination from "./TablePagination";
 import {
   API_BASE_URL,
   authFetch,
   MealLogsListResponse,
+  MealType,
   parseJsonResponse,
 } from "../lib/api";
 
@@ -17,16 +22,18 @@ export default function MealLogsTable() {
   const [pagination, setPagination] = useState<MealLogsListResponse["meta"]>({
     current_page: 1,
     last_page: 1,
-    per_page: 20,
+    per_page: 10,
     total: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mealTypes, setMealTypes] = useState<MealType[]>([]);
   const [startDate, setStartDate] = useState(getTodayDateString);
   const [endDate, setEndDate] = useState(getTodayDateString);
   const [showAllTime, setShowAllTime] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
@@ -36,7 +43,7 @@ export default function MealLogsTable() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, startDate, endDate, showAllTime]);
+  }, [debouncedSearch, mealTypes, startDate, endDate, showAllTime, perPage]);
 
   const loadLogs = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) {
@@ -47,10 +54,13 @@ export default function MealLogsTable() {
     try {
       const params = new URLSearchParams();
       params.set("page", String(currentPage));
+      params.set("per_page", String(perPage));
 
       if (debouncedSearch) {
         params.set("search", debouncedSearch);
       }
+
+      mealTypes.forEach((type) => params.append("meal_types[]", type));
 
       if (showAllTime) {
         params.set("show_all", "1");
@@ -82,20 +92,14 @@ export default function MealLogsTable() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, endDate, showAllTime, startDate]);
+  }, [currentPage, perPage, debouncedSearch, mealTypes, endDate, showAllTime, startDate]);
 
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
 
   // Live data: silently refresh the table every 3 seconds.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      void loadLogs({ silent: true });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [loadLogs]);
+  useAutoRefresh(loadLogs);
 
   const inputClassName =
     "block w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500";
@@ -119,8 +123,8 @@ export default function MealLogsTable() {
   return (
     <div className="flex flex-1 flex-col p-6 lg:p-8">
       <div className="mb-6 space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
             <label htmlFor="meal-log-search" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Search by name or department
             </label>
@@ -134,7 +138,12 @@ export default function MealLogsTable() {
             />
           </div>
 
-          <div className="sm:w-52">
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Meal type</span>
+            <MealTypeFilter selected={mealTypes} onChange={setMealTypes} />
+          </div>
+
+          <div>
             <label htmlFor="meal-log-start-date" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Start date
             </label>
@@ -148,7 +157,7 @@ export default function MealLogsTable() {
             />
           </div>
 
-          <div className="sm:w-52">
+          <div>
             <label htmlFor="meal-log-end-date" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               End date
             </label>
@@ -197,6 +206,9 @@ export default function MealLogsTable() {
                   Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Meal Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Served At
                 </th>
               </tr>
@@ -204,13 +216,13 @@ export default function MealLogsTable() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     Loading meal logs...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     No meal logs found.
                   </td>
                 </tr>
@@ -234,6 +246,9 @@ export default function MealLogsTable() {
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                       {log.employee.department}
                     </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      <MealTypeBadge type={log.meal_type} />
+                    </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                       {log.served_at}
                     </td>
@@ -244,32 +259,16 @@ export default function MealLogsTable() {
           </table>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {loading
-              ? "Loading..."
-              : `Showing ${logs.length} of ${pagination.total} record${pagination.total === 1 ? "" : "s"} (page ${pagination.current_page} of ${pagination.last_page})`}
-          </p>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={loading || pagination.current_page <= 1}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.min(pagination.last_page, page + 1))}
-              disabled={loading || pagination.current_page >= pagination.last_page}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={pagination.current_page}
+          lastPage={pagination.last_page}
+          total={pagination.total}
+          perPage={perPage}
+          shownCount={logs.length}
+          loading={loading}
+          onPageChange={setCurrentPage}
+          onPerPageChange={setPerPage}
+        />
       </div>
     </div>
   );

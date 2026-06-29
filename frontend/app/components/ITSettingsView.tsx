@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getSystemSettings,
   MealWindows,
@@ -8,6 +8,7 @@ import {
   SystemSettings,
   updateSystemSettings,
 } from "../lib/api";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 
 type SettingsResponse = {
   data?: SystemSettings;
@@ -34,34 +35,54 @@ export default function ITSettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadSettings() {
+  // Tracks unsaved local edits so background polling never clobbers the form.
+  const dirtyRef = useRef(false);
+
+  const loadSettings = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    // Skip background syncs while the user has unsaved changes.
+    if (silent && dirtyRef.current) {
+      return;
+    }
+
+    if (!silent) {
       setLoading(true);
       setError(null);
+    }
 
-      try {
-        const response = await getSystemSettings();
+    try {
+      const response = await getSystemSettings();
 
-        if (response.status >= 500) {
+      if (response.status >= 500) {
+        if (!silent) {
           setError("Server error. Unable to load settings.");
-          return;
         }
+        return;
+      }
 
-        const data = await parseJsonResponse<SettingsResponse>(response);
+      const data = await parseJsonResponse<SettingsResponse>(response);
 
-        if (data?.data) {
-          setMaintenanceMode(Boolean(data.data.maintenance_mode));
-          setMealWindows({ ...DEFAULT_WINDOWS, ...data.data.meal_windows });
-        }
-      } catch {
+      // Re-check after the await: the user may have started editing mid-flight.
+      if (data?.data && !dirtyRef.current) {
+        setMaintenanceMode(Boolean(data.data.maintenance_mode));
+        setMealWindows({ ...DEFAULT_WINDOWS, ...data.data.meal_windows });
+      }
+    } catch {
+      if (!silent) {
         setError("Unable to connect to the server.");
-      } finally {
+      }
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
     }
-
-    void loadSettings();
   }, []);
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
+
+  // Live data: silently re-sync settings every 3 seconds (unless the form is dirty).
+  useAutoRefresh(loadSettings);
 
   useEffect(() => {
     if (!toast) {
@@ -73,6 +94,7 @@ export default function ITSettingsView() {
   }, [toast]);
 
   function updateWindow(meal: keyof MealWindows, field: "start" | "end", value: string) {
+    dirtyRef.current = true;
     setMealWindows((current) => ({
       ...current,
       [meal]: { ...current[meal], [field]: value },
@@ -97,6 +119,7 @@ export default function ITSettingsView() {
       const data = await parseJsonResponse<SettingsResponse>(response);
 
       if (response.ok) {
+        dirtyRef.current = false;
         if (data?.data) {
           setMaintenanceMode(Boolean(data.data.maintenance_mode));
           setMealWindows({ ...DEFAULT_WINDOWS, ...data.data.meal_windows });
@@ -195,8 +218,11 @@ export default function ITSettingsView() {
               <button
                 type="button"
                 role="switch"
-                aria-checked={maintenanceMode}
-                onClick={() => setMaintenanceMode((current) => !current)}
+        aria-checked={maintenanceMode}
+        onClick={() => {
+          dirtyRef.current = true;
+          setMaintenanceMode((current) => !current);
+        }}
                 disabled={saving}
                 className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-slate-900 ${
                   maintenanceMode ? "bg-red-600" : "bg-slate-300 dark:bg-slate-700"

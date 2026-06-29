@@ -232,8 +232,19 @@ export type EmployeesListResponse = {
   data: EmployeeRecord[];
   meta: {
     total: number;
+    current_page?: number;
+    last_page?: number;
+    per_page?: number;
   };
 };
+
+export const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
+
+export async function deleteMealLog(id: number): Promise<Response> {
+  return authFetch(`${API_BASE_URL}/admin/meals/logs/${id}`, {
+    method: "DELETE",
+  });
+}
 
 export type BulkImportRowError = {
   row: number;

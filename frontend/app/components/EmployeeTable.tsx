@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useAutoRefresh } from "../hooks/useAutoRefresh";
 import AddEmployeeModal from "./AddEmployeeModal";
 import BulkImportModal from "./BulkImportModal";
 import EditEmployeeModal from "./EditEmployeeModal";
 import EmployeeDetailModal from "./EmployeeDetailModal";
+import TablePagination from "./TablePagination";
 import {
   API_BASE_URL,
   authFetch,
+  buildQuery,
   EmployeeRecord,
   EmployeesListResponse,
   parseJsonResponse,
@@ -26,23 +29,58 @@ function normalizeEmployee(employee: EmployeeRecord): EmployeeRecord {
 
 export default function EmployeeTable() {
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    per_page: 10,
+    total: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nameFilter, setNameFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [quotaFilter, setQuotaFilter] = useState("");
+  const [debouncedName, setDebouncedName] = useState("");
+  const [debouncedDepartment, setDebouncedDepartment] = useState("");
+  const [debouncedQuota, setDebouncedQuota] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const refreshData = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedName(nameFilter.trim());
+      setDebouncedDepartment(departmentFilter.trim());
+      setDebouncedQuota(quotaFilter.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [nameFilter, departmentFilter, quotaFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedName, debouncedDepartment, debouncedQuota, perPage]);
+
+  const refreshData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
-      const response = await authFetch(`${API_BASE_URL}/admin/employees`);
+      const query = buildQuery({
+        page: currentPage,
+        per_page: perPage,
+        name: debouncedName,
+        department: debouncedDepartment,
+        quota: debouncedQuota,
+      });
+
+      const response = await authFetch(`${API_BASE_URL}/admin/employees${query}`);
 
       if (response.status >= 500) {
         setError("Server error. Unable to load employees.");
@@ -54,8 +92,14 @@ export default function EmployeeTable() {
       if (data) {
         const normalized = data.data.map(normalizeEmployee);
         setEmployees(normalized);
+        setPagination({
+          current_page: data.meta.current_page ?? 1,
+          last_page: data.meta.last_page ?? 1,
+          per_page: data.meta.per_page ?? perPage,
+          total: data.meta.total,
+        });
         setSelectedEmployee((current) =>
-          current ? normalized.find((item) => item.id === current.id) ?? current : null,
+          current ? normalized.find((item) => item.id === current.id) ?? current : current,
         );
       }
     } catch {
@@ -63,11 +107,14 @@ export default function EmployeeTable() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, perPage, debouncedName, debouncedDepartment, debouncedQuota]);
 
   useEffect(() => {
     void refreshData();
   }, [refreshData]);
+
+  // Live data: silently refresh the employee list every 3 seconds.
+  useAutoRefresh(refreshData);
 
   useEffect(() => {
     if (!toast) {
@@ -78,21 +125,7 @@ export default function EmployeeTable() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const filteredEmployees = useMemo(() => {
-    const name = nameFilter.trim().toLowerCase();
-    const department = departmentFilter.trim().toLowerCase();
-    const quota = quotaFilter.trim();
-
-    return employees.filter((employee) => {
-      const matchesName = !name || employee.name.toLowerCase().includes(name);
-      const matchesDepartment = !department || employee.department.toLowerCase().includes(department);
-      const matchesQuota = !quota || String(employee.quota_today ?? 1) === quota;
-
-      return matchesName && matchesDepartment && matchesQuota;
-    });
-  }, [employees, nameFilter, departmentFilter, quotaFilter]);
-
-  const hasActiveFilter = Boolean(nameFilter || departmentFilter || quotaFilter);
+  const hasActiveFilter = Boolean(debouncedName || debouncedDepartment || debouncedQuota);
 
   function openEmployeeDetail(employee: EmployeeRecord) {
     setSelectedEmployee(employee);
@@ -117,8 +150,8 @@ export default function EmployeeTable() {
 
   function handleEmployeeCreated(employee: EmployeeRecord) {
     const normalized = normalizeEmployee(employee);
-    setEmployees((current) => [normalized, ...current].sort((a, b) => a.name.localeCompare(b.name)));
     setToast(`${normalized.name} has been added. Click Draft Email to send their barcode.`);
+    void refreshData();
   }
 
   function handleBulkImportSuccess(message: string) {
@@ -197,7 +230,7 @@ export default function EmployeeTable() {
           </button>
           <button
             type="button"
-            onClick={refreshData}
+            onClick={() => void refreshData()}
             disabled={loading}
             className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
@@ -292,14 +325,14 @@ export default function EmployeeTable() {
                     Loading employees...
                   </td>
                 </tr>
-              ) : filteredEmployees.length === 0 ? (
+              ) : employees.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
                     {hasActiveFilter ? "No employees match your filters." : "No employees registered yet."}
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((employee) => {
+                employees.map((employee) => {
                   const isInactive = employee.status === "inactive";
 
                   return (
@@ -384,6 +417,17 @@ export default function EmployeeTable() {
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          currentPage={pagination.current_page}
+          lastPage={pagination.last_page}
+          total={pagination.total}
+          perPage={perPage}
+          shownCount={employees.length}
+          loading={loading}
+          onPageChange={setCurrentPage}
+          onPerPageChange={setPerPage}
+        />
       </div>
 
       <AddEmployeeModal

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "../lib/api";
+import ConfirmDialog from "./ConfirmDialog";
+import LiveClock from "./LiveClock";
 import Spinner from "./Spinner";
 import ThemeToggle from "./ThemeToggle";
 
@@ -94,12 +96,17 @@ export default function ITSidebar({
   const pathname = usePathname();
   const showLabels = isMobile || !isCollapsed;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   function handleLogout() {
     if (isLoggingOut) {
       return;
     }
 
+    setShowLogoutConfirm(true);
+  }
+
+  function confirmLogout() {
     setIsLoggingOut(true);
     void logout();
   }
@@ -113,6 +120,7 @@ export default function ITSidebar({
       }`;
 
   return (
+    <>
     <aside className={asideClassName} aria-label="IT sidebar" aria-hidden={isMobile && !isMobileOpen}>
       <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800 ${showLabels ? "gap-3 px-6" : "justify-center px-3"}`}>
         <LogoMark />
@@ -133,6 +141,12 @@ export default function ITSidebar({
           </button>
         )}
       </div>
+
+      {showLabels && (
+        <div className="shrink-0 border-b border-slate-200 px-6 py-2.5 dark:border-slate-800">
+          <LiveClock />
+        </div>
+      )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
@@ -191,5 +205,18 @@ export default function ITSidebar({
         )}
       </div>
     </aside>
+
+    <ConfirmDialog
+      isOpen={showLogoutConfirm}
+      title="Confirm Logout"
+      description={<p>Are you sure you want to log out?</p>}
+      confirmLabel="Yes, Log Out"
+      cancelLabel="Cancel"
+      variant="danger"
+      loading={isLoggingOut}
+      onConfirm={confirmLogout}
+      onCancel={() => setShowLogoutConfirm(false)}
+    />
+    </>
   );
 }
