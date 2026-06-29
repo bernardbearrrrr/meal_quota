@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "../lib/api";
 import ConfirmDialog from "./ConfirmDialog";
-import LiveClock from "./LiveClock";
 import Spinner from "./Spinner";
 import ThemeToggle from "./ThemeToggle";
 
@@ -140,12 +139,6 @@ export default function KantinSidebar({
           </button>
         )}
       </div>
-
-      {showLabels && (
-        <div className="shrink-0 border-b border-slate-200 px-6 py-2.5 dark:border-slate-800">
-          <LiveClock />
-        </div>
-      )}
 
       <nav className={`flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain ${isCollapsed && !isMobile ? "p-3" : "p-4"}`}>
         {navItems.map(({ href, label, icon: Icon, exact }) => {

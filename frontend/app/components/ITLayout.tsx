@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import ITSidebar from "./ITSidebar";
+import LiveClock from "./LiveClock";
 import RoleGuard from "./RoleGuard";
 
 function MobileLogo() {
@@ -53,7 +54,9 @@ export default function ITLayout({ children }: { children: ReactNode }) {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900 md:hidden">
             <MobileLogo />
-            <button
+            <div className="flex min-w-0 items-center gap-2">
+              <LiveClock className="max-w-[10rem] shrink text-right sm:max-w-none" />
+              <button
               type="button"
               onClick={openMobileMenu}
               aria-label="Open IT menu"
@@ -62,10 +65,12 @@ export default function ITLayout({ children }: { children: ReactNode }) {
             >
               <HamburgerIcon className="h-6 w-6 shrink-0" />
             </button>
+            </div>
           </header>
 
-          <header className="hidden h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900 md:flex lg:px-8">
+          <header className="hidden h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900 md:flex lg:px-8">
             <h1 className="text-lg font-semibold text-slate-900 dark:text-white">IT Super Admin Console</h1>
+            <LiveClock className="shrink-0 text-right" />
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
         </div>
